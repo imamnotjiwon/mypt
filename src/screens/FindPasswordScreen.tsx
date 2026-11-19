@@ -4,12 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '../components/AppText';
 import { AuthInput } from '../components/AuthInput';
 import { PrimaryButton } from '../components/PrimaryButton';
-import { STATUS_BAR_HEIGHT } from '../components/PhoneStatusBar';
+import { useAppInsets } from '../hooks/useAppInsets';
 import { useApp } from '../store/AppProvider';
 import { colors, font, layout, space } from '../theme';
 
 export function FindPasswordScreen() {
   const { go, resetPassword } = useApp();
+  const { top } = useAppInsets();
   const [username, setUsername] = useState('');
   const [nickname, setNickname] = useState('');
   const [password, setPassword] = useState('');
@@ -33,7 +34,7 @@ export function FindPasswordScreen() {
 
   return (
     <View style={styles.root}>
-      <SafeAreaView style={styles.safe} edges={[]}>
+      <SafeAreaView style={[styles.safe, { paddingTop: top }]} edges={[]}>
         <View style={styles.top}>
           <Pressable style={styles.backBtn} onPress={() => go('login')}>
             <AppText style={styles.backTxt}>‹</AppText>
@@ -43,7 +44,7 @@ export function FindPasswordScreen() {
           </AppText>
           <View style={styles.backBtn} />
         </View>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <AppText style={styles.lead}>가입할 때 만든 아이디와 닉네임을 확인한 뒤 새 비밀번호로 바꿔요.</AppText>
           <AuthInput
@@ -80,17 +81,18 @@ export function FindPasswordScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.white },
-  safe: { flex: 1, paddingTop: Platform.OS === 'web' ? STATUS_BAR_HEIGHT : 0 },
+  safe: { flex: 1 },
   top: {
-    height: 44,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: layout.screen,
+    paddingBottom: 4,
   },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  backTxt: { fontFamily: font.bold, fontSize: 28, lineHeight: 36, color: colors.navy },
-  title: { fontFamily: font.bold, color: colors.black },
+  backTxt: { fontFamily: font.bold, fontSize: 28, lineHeight: 32, color: colors.navy },
+  title: { flex: 1, textAlign: 'center', fontFamily: font.bold, color: colors.black },
   scroll: { paddingHorizontal: layout.screen, paddingTop: space[16], paddingBottom: 40, gap: space[16] },
   lead: { fontFamily: font.medium, fontSize: 14, lineHeight: 22, color: colors.muted },
   error: { fontFamily: font.medium, fontSize: 13, color: '#E35D5D' },

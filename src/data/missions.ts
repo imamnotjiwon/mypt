@@ -133,8 +133,28 @@ function matchesCautions(template: MissionTemplate, survey: MissionSurvey) {
   return !template.cautions.some((part) => survey.cautions.includes(part));
 }
 
+/** YYYY-MM-DD (자릿수 고정 — 문자열 비교/정렬이 깨지지 않게) */
 export function todayKey(date = new Date()) {
-  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/** 저장된 구형 키(2026-11-8)도 동일 형식으로 맞춤 */
+export function normalizeDateKey(key: string) {
+  const match = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(key.trim());
+  if (!match) return key;
+  return `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
+}
+
+export function shiftDay(date: Date, days: number) {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+  return next;
+}
+
+export function yesterdayKey(date = new Date()) {
+  return todayKey(shiftDay(date, -1));
 }
 
 export function pickDailyMissions(survey: MissionSurvey, seedKey: string): DailyMission[] {

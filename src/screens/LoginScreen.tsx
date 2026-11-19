@@ -2,9 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Image,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,14 +13,25 @@ import { AppText } from '../components/AppText';
 import { AuthInput } from '../components/AuthInput';
 import { LogoMark } from '../components/Marks';
 import { PrimaryButton } from '../components/PrimaryButton';
-import { CHARACTERS, Character } from '../data/characters';
+import { CHARACTERS, Character, CharacterId } from '../data/characters';
+import { useAppInsets } from '../hooks/useAppInsets';
+import { useFrameWidth } from '../hooks/useDesignScale';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { colors, font, layout, space } from '../theme';
 import { useApp } from '../store/AppProvider';
 
-const TILE_W = 169;
-const TILE_H = 210;
 const TILE_GAP = 12;
-const ITEM_H = TILE_H + TILE_GAP;
+const MARQUEE_PAD = 24;
+const MARQUEE_GAP = 17;
+const TILE_RATIO = 210 / 169;
+
+/** 로그인 마퀴 타일 안 캐릭터만 — 타일 박스는 그대로 */
+const LOGIN_FIT: Partial<Record<CharacterId, number>> = {
+  otter: 0.86,
+  dog: 0.86,
+  cat: 0.84,
+  hamster: 0.62,
+};
 
 function shuffle<T>(list: T[]) {
   const next = [...list];
@@ -37,11 +45,16 @@ function shuffle<T>(list: T[]) {
 function MarqueeColumn({
   characters,
   direction,
+  tileW,
+  tileH,
 }: {
   characters: Character[];
   direction: 'up' | 'down';
+  tileW: number;
+  tileH: number;
 }) {
-  const distance = Math.max(1, characters.length) * ITEM_H;
+  const itemH = tileH + TILE_GAP;
+  const distance = Math.max(1, characters.length) * itemH;
   const loop = [...characters, ...characters];
   const translateY = useRef(new Animated.Value(direction === 'up' ? 0 : -distance)).current;
 
@@ -49,7 +62,7 @@ function MarqueeColumn({
     let pos = direction === 'up' ? 0 : -distance;
     let raf = 0;
     let last = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    const speed = direction === 'up' ? 26 : 22;
+    const speed = 24;
     translateY.setValue(pos);
 
     const tick = (now: number) => {
@@ -69,8 +82,27 @@ function MarqueeColumn({
     <View style={styles.column}>
       <Animated.View style={{ transform: [{ translateY }] }}>
         {loop.map((character, index) => (
-          <View key={`${character.id}-${index}`} style={[styles.tile, index % 2 ? styles.tileAlt : null]}>
-            <Image source={character.body} style={styles.tileImg} resizeMode="contain" />
+          <View
+            key={`${character.id}-${index}`}
+            style={[styles.tile, { width: tileW, height: tileH }, index % 2 ? styles.tileAlt : null]}
+          >
+            {(() => {
+              const fit = LOGIN_FIT[character.id] ?? 1;
+              const imgW = tileW * fit;
+              const imgH = tileH * 0.94 * fit;
+              const nudge = Math.round(imgW * (character.nudgeX ?? 0));
+              return (
+                <Image
+                  source={character.body}
+                  style={{
+                    width: imgW,
+                    height: imgH,
+                    transform: [{ translateX: nudge }],
+                  }}
+                  resizeMode="contain"
+                />
+              );
+            })()}
           </View>
         ))}
       </Animated.View>
@@ -84,7 +116,12 @@ export function LoginScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const keyboard = useKeyboardInset();
+  const keyboardOpen = keyboard > 0;
+  const { bottom } = useAppInsets();
+  const frameW = useFrameWidth();
+  const tileW = Math.max(120, (frameW - MARQUEE_PAD * 2 - MARQUEE_GAP) / 2);
+  const tileH = tileW * TILE_RATIO;
   const columns = useMemo(() => {
     const unique = shuffle(CHARACTERS);
     return {
@@ -96,19 +133,6 @@ export function LoginScreen() {
   useEffect(() => {
     if (pendingUsername) setUsername(pendingUsername);
   }, [pendingUsername]);
-
-  useEffect(() => {
-    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => {
-      setKeyboardOpen(true);
-    });
-    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => {
-      setKeyboardOpen(false);
-    });
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
 
   const submit = async () => {
     if (busy) return;
@@ -124,23 +148,31 @@ export function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.root} behavior="padding">
-      <View style={[styles.collage, keyboardOpen && styles.collageCompact]}>
+    <View style={styles.root}>
+      <View style={styles.collage}>
         <View style={styles.marquee}>
-          <MarqueeColumn characters={columns.left} direction="up" />
-          <MarqueeColumn characters={columns.right} direction="down" />
+          <MarqueeColumn characters={columns.left} direction="up" tileW={tileW} tileH={tileH} />
+          <MarqueeColumn characters={columns.right} direction="down" tileW={tileW} tileH={tileH} />
         </View>
 
         <LinearGradient
-          colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.45)', colors.white, colors.white]}
-          locations={[0, 0.34, 0.55, 1]}
+          colors={[
+            'rgba(255,255,255,0)',
+            'rgba(255,255,255,0.08)',
+            'rgba(255,255,255,0.28)',
+            'rgba(255,255,255,0.55)',
+            'rgba(255,255,255,0.82)',
+            'rgba(255,255,255,0.96)',
+            colors.white,
+          ]}
+          locations={[0, 0.18, 0.36, 0.52, 0.68, 0.84, 1]}
           style={styles.fadeBottom}
+          pointerEvents="none"
         />
-        <View style={styles.fadeCap} />
 
         {keyboardOpen ? null : (
-          <View style={styles.brand}>
-            <LogoMark width={186} height={46} />
+          <View style={styles.brand} pointerEvents="none">
+            <LogoMark width={248} height={96} />
             <AppText variant="caption" style={styles.slogan}>
               AI가 만드는 맞춤 루틴
             </AppText>
@@ -148,7 +180,15 @@ export function LoginScreen() {
         )}
       </View>
 
-      <SafeAreaView edges={['bottom']} style={styles.sheet}>
+      <SafeAreaView
+        edges={[]}
+        style={[
+          styles.sheet,
+          {
+            paddingBottom: keyboardOpen ? Math.max(12, keyboard) : bottom,
+          },
+        ]}
+      >
         <ScrollView
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -186,19 +226,18 @@ export function LoginScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.white },
   collage: { flex: 1, overflow: 'hidden' },
-  collageCompact: { flexGrow: 0, flexShrink: 1, height: 160 },
   marquee: {
     flex: 1,
     flexDirection: 'row',
-    paddingHorizontal: 24,
-    gap: 17,
+    paddingHorizontal: MARQUEE_PAD,
+    gap: MARQUEE_GAP,
     overflow: 'hidden',
   },
   column: {
@@ -206,41 +245,34 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   tile: {
-    width: TILE_W,
-    height: TILE_H,
     borderRadius: 28,
     backgroundColor: colors.sky,
     marginBottom: TILE_GAP,
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
     overflow: 'hidden',
   },
   tileAlt: {
     backgroundColor: '#DCEEF9',
   },
-  tileImg: {
-    width: 168,
-    height: 198,
-  },
-  fadeBottom: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 250 },
-  fadeCap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 96, backgroundColor: colors.white },
+  fadeBottom: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 360 },
   brand: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: 86,
-    paddingBottom: 8,
+    height: 132,
+    paddingBottom: 10,
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: 6,
-    backgroundColor: colors.white,
+    backgroundColor: 'transparent',
   },
   slogan: { color: colors.muted, fontFamily: font.medium, fontSize: 14 },
   sheet: { flexGrow: 0, flexShrink: 0, backgroundColor: colors.white, marginTop: -1 },
   actions: {
     paddingHorizontal: layout.loginActions,
-    paddingBottom: space[16],
+    paddingBottom: space[8],
     paddingTop: space[8],
     gap: space[12],
   },

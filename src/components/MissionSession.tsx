@@ -1,10 +1,11 @@
 import { ReactNode } from 'react';
-import { Image, ImageSourcePropType, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Image, ImageSourcePropType, Pressable, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppText } from './AppText';
+import { BackGlyph, CloseGlyph } from './NavGlyph';
 import { ProgressBar } from './ProgressBar';
 import { ProgressRing } from './ProgressRing';
-import { STATUS_BAR_HEIGHT } from './PhoneStatusBar';
+import { useAppInsets } from '../hooks/useAppInsets';
 import { colors, font, layout, radius, space } from '../theme';
 
 export function formatMinSec(totalSeconds: number) {
@@ -17,14 +18,14 @@ export function formatMinSec(totalSeconds: number) {
 export function MissionTopBar({ title, onBack, onClose }: { title: string; onBack: () => void; onClose: () => void }) {
   return (
     <View style={styles.top}>
-      <Pressable style={styles.round} onPress={onBack}>
-        <Image source={require('../../assets/ui/icon-mission-back.png')} style={styles.navIcon} resizeMode="contain" />
+      <Pressable style={({ pressed }) => [styles.round, pressed && { opacity: 0.65 }]} onPress={onBack} hitSlop={12}>
+        <BackGlyph />
       </Pressable>
-      <AppText variant="title" style={styles.topTitle}>
+      <AppText variant="title" style={styles.topTitle} numberOfLines={1}>
         {title}
       </AppText>
-      <Pressable style={styles.round} onPress={onClose}>
-        <Image source={require('../../assets/ui/icon-mission-close.png')} style={styles.navIcon} resizeMode="contain" />
+      <Pressable style={({ pressed }) => [styles.round, pressed && { opacity: 0.65 }]} onPress={onClose} hitSlop={12}>
+        <CloseGlyph />
       </Pressable>
     </View>
   );
@@ -220,9 +221,10 @@ export function MissionStatsRow({
 }
 
 export function MissionScreenFrame({ children }: { children: ReactNode }) {
+  const { top } = useAppInsets();
   return (
     <LinearGradient colors={['#EAF4FF', colors.white]} style={styles.frame}>
-      <View style={styles.framePad}>{children}</View>
+      <View style={[styles.framePad, { paddingTop: top }]}>{children}</View>
     </LinearGradient>
   );
 }
@@ -232,7 +234,6 @@ const styles = StyleSheet.create({
   framePad: {
     flex: 1,
     paddingHorizontal: layout.screen,
-    paddingTop: Platform.OS === 'web' ? STATUS_BAR_HEIGHT : 0,
   },
   top: { height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   topTitle: {
@@ -255,7 +256,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 1,
   },
-  navIcon: { width: 40, height: 40 },
   summary: {
     flexDirection: 'row',
     gap: space[12],

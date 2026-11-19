@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Image,
   ImageSourcePropType,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -15,10 +14,12 @@ import { AppText } from '../components/AppText';
 import { BottomNav } from '../components/BottomNav';
 import { CommunityCompose } from '../components/CommunityCompose';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { SearchMark } from '../components/Marks';
 import { CHARACTERS, Character, asCharacterHead, getCharacter } from '../data/characters';
 import { useApp } from '../store/AppProvider';
 import * as api from '../api';
-import { STATUS_BAR_HEIGHT } from '../components/PhoneStatusBar';
+import { useAppInsets } from '../hooks/useAppInsets';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { colors, fieldFont, font, layout, shadow, space } from '../theme';
 
 type Tab = 'workout' | 'diet' | 'message';
@@ -50,107 +51,11 @@ type CommentItem = {
   liked?: boolean;
 };
 
-const POSTS: Post[] = [
-  {
-    id: 'gym',
-    user: CHARACTERS.find((c) => c.id === 'sloth')!,
-    nickname: '늘보씨',
-    level: 27,
-    title: '오랜만에 헬스장 인증!',
-    body: '퇴근하고 헬스장 오기까지가 제일 힘들었지만, 막상 오니까 개운하네요. 오늘로 7일 연속 퀘스트성공! 🔥💪',
-    time: '1시간 전',
-    likes: 342,
-    comments: 45,
-    photos: [],
-    photo: require('../../assets/community/post1.png'),
-    tab: 'workout',
-  },
-  {
-    id: 'gorilla',
-    user: CHARACTERS.find((c) => c.id === 'gorilla')!,
-    nickname: '고릴',
-    level: 48,
-    title: '말보다 결과로 증명한다',
-    body: '오늘의 퀘스트 클리어 ✅\n레벨업 완료 🔥\n오늘도 성장 +1',
-    time: '2시간 전',
-    likes: 512,
-    comments: 113,
-    photos: [],
-    photo: require('../../assets/community/post2.png'),
-    tab: 'workout',
-  },
-  {
-    id: 'legs',
-    user: CHARACTERS.find((c) => c.id === 'rabbit')!,
-    nickname: '토리',
-    level: 32,
-    title: '하체 끝난 날 인증',
-    body: '스쿼트 30회 클리어. 내일은 유산소 같이 할 사람?',
-    time: '4시간 전',
-    likes: 1276,
-    comments: 324,
-    photos: [],
-    photo: require('../../assets/community/post3.png'),
-    tab: 'workout',
-  },
-  {
-    id: 'poke',
-    user: CHARACTERS.find((c) => c.id === 'rabbit')!,
-    nickname: '토리',
-    level: 6,
-    title: '오늘의 식단 공유 💕',
-    body: '연어 포케볼로 가볍게. 단백질이랑 채소 같이 챙겼어요.',
-    time: '1시간 전',
-    likes: 133,
-    comments: 22,
-    photos: [],
-    photo: require('../../assets/community/diet-poke.png'),
-    tab: 'diet',
-  },
-  {
-    id: 'meal',
-    user: CHARACTERS.find((c) => c.id === 'bear')!,
-    nickname: '곰이',
-    level: 32,
-    title: '일주일 도시락 완성',
-    body: '미리 나눠두면 저녁에 덜 흔들려요. 오늘도 식단 클리어!',
-    time: '3시간 전',
-    likes: 88,
-    comments: 12,
-    photos: [],
-    photo: require('../../assets/community/diet-meal.png'),
-    tab: 'diet',
-  },
-];
-
-const COMMENTS: Record<string, CommentItem[]> = {
-  gym: [
-    {
-      id: 'c1',
-      user: CHARACTERS.find((c) => c.id === 'rabbit')!,
-      level: 6,
-      text: '와우! 7일 연속 대단해요... 저도 자극받고 갑니다!',
-      time: '1시간 전',
-      likes: 12,
-    },
-    {
-      id: 'c2',
-      user: CHARACTERS.find((c) => c.id === 'bear')!,
-      level: 32,
-      text: '헬스장 조명 미쳤다 ㅋㅋ 오늘 하체 루틴 공유 부탁!',
-      time: '58분 전',
-      likes: 8,
-    },
-    {
-      id: 'c3',
-      user: CHARACTERS.find((c) => c.id === 'hamster')!,
-      level: 21,
-      text: '연속 퀘스트 진짜 존경합니다 🔥',
-      time: '40분 전',
-      likes: 5,
-    },
-  ],
-};
+function matchesQuery(haystack: string, query: string) {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  return haystack.toLowerCase().includes(needle);
+}
 
 function timeAgo(ts: number) {
   const mins = Math.max(0, Math.floor((Date.now() - ts) / 60000));
@@ -163,6 +68,7 @@ function timeAgo(ts: number) {
 
 function fromRemote(post: api.RemotePost): Post {
   const user = CHARACTERS.find((item) => item.id === post.characterId) ?? CHARACTERS[0];
+  const photos = Array.isArray(post.photos) ? post.photos : [];
   return {
     id: post.id,
     authorId: post.authorId,
@@ -175,8 +81,8 @@ function fromRemote(post: api.RemotePost): Post {
     likes: post.likes,
     comments: post.comments,
     liked: !!post.liked,
-    photos: post.photos,
-    photo: post.photos[0] ? { uri: post.photos[0] } : undefined,
+    photos,
+    photo: photos[0] ? { uri: photos[0] } : undefined,
     tab: post.tab,
   };
 }
@@ -194,13 +100,50 @@ function fromRemoteComment(item: api.RemoteComment): CommentItem {
   };
 }
 
+function PostPhoto({ source }: { source: ImageSourcePropType }) {
+  const [ratio, setRatio] = useState(1);
+  useEffect(() => {
+    const uri =
+      typeof source === 'object' && source && !Array.isArray(source) && 'uri' in source
+        ? source.uri
+        : undefined;
+    if (!uri) {
+      const resolved = Image.resolveAssetSource(source);
+      if (resolved?.width && resolved?.height) {
+        setRatio(Math.max(0.75, Math.min(1.91, resolved.width / resolved.height)));
+      }
+      return;
+    }
+    Image.getSize(
+      uri,
+      (w, h) => {
+        if (w > 0 && h > 0) setRatio(Math.max(0.75, Math.min(1.91, w / h)));
+      },
+      () => setRatio(1),
+    );
+  }, [source]);
+  return (
+    <View style={styles.photoWrap}>
+      <Image source={source} style={[styles.photo, { aspectRatio: ratio }]} resizeMode="contain" />
+    </View>
+  );
+}
+
 function HeartIcon({ on, size = 18 }: { on: boolean; size?: number }) {
   return (
-    <Image
-      source={on ? require('../../assets/community/heart-on.png') : require('../../assets/community/heart-off.png')}
-      style={{ width: size, height: size }}
-      resizeMode="contain"
-    />
+    <AppText
+      style={{
+        fontFamily: font.bold,
+        fontSize: size,
+        lineHeight: size + 2,
+        color: on ? '#E35D5D' : '#ABADAF',
+        backgroundColor: 'transparent',
+        width: size,
+        textAlign: 'center',
+      }}
+    >
+      ♥
+    </AppText>
   );
 }
 
@@ -219,16 +162,17 @@ function ActionBar({
 }) {
   return (
     <View style={styles.actions}>
-      <Pressable style={styles.stat} onPress={onLike} hitSlop={8}>
+      <Pressable
+        style={({ pressed }) => [styles.stat, pressed && { opacity: 0.65 }]}
+        onPress={onLike}
+        hitSlop={12}
+      >
         <HeartIcon on={liked} />
         <AppText style={[styles.statText, liked && styles.statOn]}>{likes}</AppText>
       </Pressable>
-      <Pressable style={styles.stat} onPress={onComment}>
+      <Pressable style={({ pressed }) => [styles.stat, pressed && { opacity: 0.65 }]} onPress={onComment} hitSlop={12}>
         <Image source={require('../../assets/community/comment.png')} style={styles.actionIcon} resizeMode="contain" />
         <AppText style={styles.statText}>{comments}</AppText>
-      </Pressable>
-      <Pressable style={styles.shareBtn}>
-        <Image source={require('../../assets/community/share.png')} style={styles.shareIcon} resizeMode="contain" />
       </Pressable>
     </View>
   );
@@ -270,7 +214,7 @@ function PostCard({
           </View>
         </Pressable>
         {mine ? (
-          <Pressable style={styles.meatball} onPress={onMenu} hitSlop={8}>
+          <Pressable style={styles.meatball} onPress={onMenu} hitSlop={12}>
             <AppText style={styles.meatballTxt}>⋮</AppText>
           </Pressable>
         ) : null}
@@ -289,11 +233,7 @@ function PostCard({
         <AppText style={styles.postTitle}>{post.title}</AppText>
         <AppText style={styles.postBody}>{post.body}</AppText>
         <AppText style={styles.time}>{post.time}</AppText>
-        {post.photo ? (
-          <View style={styles.photoWrap}>
-            <Image source={post.photo} style={styles.photo} resizeMode="cover" />
-          </View>
-        ) : null}
+        {post.photo ? <PostPhoto source={post.photo} /> : null}
       </Pressable>
       <ActionBar liked={liked} likes={likes} comments={comments} onLike={onLike} onComment={onOpen} />
     </View>
@@ -321,15 +261,16 @@ function PostDetail({
   onCommentsChange: (count: number) => void;
   onBack: () => void;
 }) {
+  const { top, bottom } = useAppInsets();
+  const keyboard = useKeyboardInset();
   const remote = !!post.authorId;
-  const seed = useMemo(() => COMMENTS[post.id] ?? [], [post.id]);
-  const [list, setList] = useState<CommentItem[]>(seed);
+  const [list, setList] = useState<CommentItem[]>([]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!token || !remote) {
-      setList(COMMENTS[post.id] ?? []);
+      setList([]);
       return;
     }
     let live = true;
@@ -340,7 +281,7 @@ function PostDetail({
         setList(data.comments.map(fromRemoteComment));
       })
       .catch(() => {
-        if (live) setList(COMMENTS[post.id] ?? []);
+        if (live) setList([]);
       });
     return () => {
       live = false;
@@ -392,8 +333,8 @@ function PostDetail({
 
   return (
     <View style={styles.detail}>
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <View style={styles.detailTop}>
+      <SafeAreaView style={{ flex: 1 }} edges={[]}>
+        <View style={[styles.detailTop, { paddingTop: top }]}>
           <Pressable style={styles.backBtn} onPress={onBack}>
             <AppText style={styles.backTxt}>‹</AppText>
           </Pressable>
@@ -402,8 +343,8 @@ function PostDetail({
           </AppText>
           <View style={styles.backBtn} />
         </View>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView contentContainerStyle={styles.detailScroll} showsVerticalScrollIndicator={false}>
+        <View style={{ flex: 1 }}>
+          <ScrollView contentContainerStyle={styles.detailScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View style={[styles.userRow, styles.detailUser]}>
               <Image source={post.user.head} style={styles.avatar} />
               <View>
@@ -414,11 +355,7 @@ function PostDetail({
             <AppText style={styles.postTitle}>{post.title}</AppText>
             <AppText style={styles.postBody}>{post.body}</AppText>
             <AppText style={styles.time}>{post.time}</AppText>
-            {post.photo ? (
-              <View style={styles.photoWrap}>
-                <Image source={post.photo} style={styles.photo} resizeMode="cover" />
-              </View>
-            ) : null}
+            {post.photo ? <PostPhoto source={post.photo} /> : null}
             <ActionBar liked={liked} likes={likes} comments={comments} onLike={onLike} onComment={() => undefined} />
             <View style={styles.divider} />
             {list.map((item) => (
@@ -431,17 +368,20 @@ function PostDetail({
                     <AppText style={styles.commentText}>{item.text}</AppText>
                     <View style={styles.commentMeta}>
                       <AppText style={styles.timeInline}>{item.time}</AppText>
-                      <AppText style={styles.reply}>답글</AppText>
                     </View>
                   </View>
-                  <Pressable style={styles.commentLike} onPress={() => toggleCommentHeart(item)}>
+                  <Pressable
+                    style={({ pressed }) => [styles.commentLike, pressed && { opacity: 0.65 }]}
+                    onPress={() => toggleCommentHeart(item)}
+                    hitSlop={12}
+                  >
                     <HeartIcon on={!!item.liked} size={14} />
                     <AppText style={[styles.statText, item.liked && styles.statOn]}>{item.likes}</AppText>
                   </Pressable>
                 </View>
               ))}
           </ScrollView>
-          <View style={styles.composer}>
+          <View style={[styles.composer, { paddingBottom: 10 + (keyboard > 0 ? 8 : bottom) + keyboard }]}>
             <Image source={me.head} style={styles.commentAvatar} />
             <TextInput
               value={draft}
@@ -451,12 +391,14 @@ function PostDetail({
               selectionColor={colors.navy}
               underlineColorAndroid="transparent"
               style={styles.input}
+              returnKeyType="send"
+              onSubmitEditing={submitComment}
             />
-            <Pressable style={styles.send} onPress={submitComment} disabled={busy}>
+            <Pressable style={styles.send} onPress={submitComment} disabled={busy} hitSlop={8}>
               <AppText style={styles.sendTxt}>등록</AppText>
             </Pressable>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </SafeAreaView>
     </View>
   );
@@ -464,7 +406,10 @@ function PostDetail({
 
 export function CommunityScreen() {
   const { go, openChat, nickname, coins, characterId, level, addCoins, token, userId } = useApp();
+  const { top, navHeight, navInset } = useAppInsets();
   const [tab, setTab] = useState<Tab>('workout');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [compose, setCompose] = useState(false);
   const [composeKind, setComposeKind] = useState<'workout' | 'diet'>('workout');
@@ -476,9 +421,14 @@ export function CommunityScreen() {
   const [commentCount, setCommentCount] = useState<Record<string, number>>({});
   const [chats, setChats] = useState<api.ChatThread[]>([]);
   const [pickFriend, setPickFriend] = useState(false);
+  const [pickList, setPickList] = useState<api.FriendPreview[]>([]);
   const me = { ...getCharacter(characterId), nickname };
-  const allPosts = [...userPosts, ...POSTS];
-  const feed = allPosts.filter((p) => p.tab === tab);
+  const allPosts = userPosts;
+  const query = searchOpen ? searchQuery : '';
+  const feed = allPosts.filter((p) => p.tab === tab && matchesQuery(`${p.nickname} ${p.title} ${p.body}`, query));
+  const chatFeed = chats.filter((row) =>
+    matchesQuery(`${row.peer.nickname} ${row.lastMessage?.text ?? ''}`, query),
+  );
   const openPost = allPosts.find((p) => p.id === openId) ?? null;
 
   useEffect(() => {
@@ -488,7 +438,10 @@ export function CommunityScreen() {
       .then(({ posts }) => {
         if (!live) return;
         const mapped = posts.map(fromRemote);
-        setUserPosts(mapped);
+        setUserPosts((prev) => {
+          const seen = new Set(mapped.map((item) => item.id));
+          return [...prev.filter((item) => item.id.startsWith('local-') && !seen.has(item.id)), ...mapped];
+        });
         setLiked((prev) => ({ ...prev, ...Object.fromEntries(mapped.map((item) => [item.id, !!item.liked])) }));
         setLikeCount((prev) => ({ ...prev, ...Object.fromEntries(mapped.map((item) => [item.id, item.likes])) }));
         setCommentCount((prev) => ({ ...prev, ...Object.fromEntries(mapped.map((item) => [item.id, item.comments])) }));
@@ -503,6 +456,11 @@ export function CommunityScreen() {
     if (tab !== 'message' || !token) return;
     api.listChats(token).then((data) => setChats(data.chats)).catch(() => setChats([]));
   }, [tab, token]);
+
+  useEffect(() => {
+    if (!pickFriend || !token) return;
+    api.listFriends(token).then((data) => setPickList(data.friends)).catch(() => setPickList([]));
+  }, [pickFriend, token]);
 
   const toggleLike = async (post: Post) => {
     if (token && post.authorId) {
@@ -534,9 +492,39 @@ export function CommunityScreen() {
   return (
     <View style={styles.root}>
       <SafeAreaView style={styles.safe} edges={[]}>
-        <ScreenHeader nickname={nickname} coins={coins} characterId={characterId} onPressProfile={() => go('profile')} />
-
-        <View style={styles.tabs}>
+        <ScrollView contentContainerStyle={[styles.list, { paddingBottom: navInset }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <View style={styles.headerBleed}>
+            <ScreenHeader
+              nickname={nickname}
+              coins={coins}
+              characterId={characterId}
+              onPressProfile={() => go('profile')}
+              onPressSearch={() => {
+                setSearchOpen((open) => {
+                  if (open) setSearchQuery('');
+                  return !open;
+                });
+              }}
+              searchActive={searchOpen}
+              compact
+            />
+          </View>
+          {searchOpen ? (
+            <View style={styles.searchBar}>
+              <SearchMark size={16} />
+              <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={tab === 'message' ? '닉네임 또는 대화 내용 검색' : '닉네임, 제목, 내용 검색'}
+                placeholderTextColor="#B0B4B8"
+                selectionColor={colors.navy}
+                underlineColorAndroid="transparent"
+                autoFocus
+                style={styles.searchInput}
+              />
+            </View>
+          ) : null}
+          <View style={styles.tabs}>
           {(
             [
               { id: 'workout', label: '운동 인증' },
@@ -545,21 +533,28 @@ export function CommunityScreen() {
             ] as const
           ).map((item) => (
             <Pressable key={item.id} onPress={() => setTab(item.id)} style={[styles.tab, tab === item.id && styles.tabOn]}>
-              <AppText style={[styles.tabText, tab === item.id && styles.tabOnText]}>{item.label}</AppText>
+              <AppText style={[styles.tabText, tab === item.id && styles.tabOnText]} numberOfLines={1}>
+                {item.label}
+              </AppText>
             </Pressable>
           ))}
         </View>
 
-        <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
           {tab === 'message'
-            ? chats.length === 0
+            ? chatFeed.length === 0
               ? (
                 <View style={styles.empty}>
-                  <AppText style={styles.emptyTitle}>아직 채팅이 없어요</AppText>
-                  <AppText style={styles.emptyHint}>친구를 추가한 뒤 오른쪽 아래 버튼으로 대화를 시작해 보세요!</AppText>
+                  <AppText style={styles.emptyTitle}>
+                    {query.trim() ? '검색 결과가 없어요' : '아직 채팅이 없어요'}
+                  </AppText>
+                  <AppText style={styles.emptyHint}>
+                    {query.trim()
+                      ? '다른 닉네임이나 내용으로 다시 찾아 보세요'
+                      : '친구를 추가한 뒤 오른쪽 아래 버튼으로 대화를 시작해 보세요!'}
+                  </AppText>
                 </View>
               )
-              : chats.map((row) => (
+              : chatFeed.map((row) => (
                 <Pressable key={row.peer.id} style={styles.chatCard} onPress={() => openChat(row.peer.id)}>
                   <View>
                     <Image source={asCharacterHead(row.peer.characterId)} style={styles.avatar} />
@@ -579,8 +574,14 @@ export function CommunityScreen() {
             : feed.length === 0
               ? (
                 <View style={styles.empty}>
-                  <AppText style={styles.emptyTitle}>{tab === 'diet' ? '아직 식단 공유가 없어요' : '아직 운동 인증이 없어요'}</AppText>
-                  <AppText style={styles.emptyHint}>오른쪽 아래 연필 버튼으로 게시물을 올려 보세요!</AppText>
+                  <AppText style={styles.emptyTitle}>
+                    {query.trim() ? '검색 결과가 없어요' : tab === 'diet' ? '아직 식단 공유가 없어요' : '아직 운동 인증이 없어요'}
+                  </AppText>
+                  <AppText style={styles.emptyHint}>
+                    {query.trim()
+                      ? '다른 닉네임이나 내용으로 다시 찾아 보세요'
+                      : '오른쪽 아래 연필 버튼으로 게시물을 올려 보세요!'}
+                  </AppText>
                 </View>
               )
               : feed.map((post) => (
@@ -622,13 +623,13 @@ export function CommunityScreen() {
         </ScrollView>
       </SafeAreaView>
       {tab === 'message' && !openPost && !compose ? (
-        <Pressable style={styles.chatFab} onPress={() => setPickFriend(true)}>
+        <Pressable style={[styles.chatFab, { bottom: navHeight + 12 }]} onPress={() => setPickFriend(true)}>
           <AppText style={styles.chatFabTxt}>+</AppText>
         </Pressable>
       ) : null}
       {tab !== 'message' && !openPost && !compose ? (
         <Pressable
-          style={styles.fab}
+          style={[styles.fab, { bottom: navHeight + 12 }]}
           onPress={() => {
             if (tab !== 'workout' && tab !== 'diet') return;
             setEditing(null);
@@ -663,25 +664,44 @@ export function CommunityScreen() {
           initial={editing ? { title: editing.title, body: editing.body, photos: editing.photos } : undefined}
           onClose={closeCompose}
           onPublish={async ({ title, body, photos, visibility }) => {
-            if (!token) return;
-            try {
-              if (editing) {
-                const { post } = await api.updatePost(token, editing.id, { title, body, photos, visibility });
-                const mapped = fromRemote(post);
-                setUserPosts((prev) => prev.map((item) => (item.id === mapped.id ? mapped : item)));
-              } else {
-                const { post } = await api.createPost(token, {
-                  title,
-                  body,
-                  photos,
-                  tab: composeKind,
-                  visibility,
-                });
-                setUserPosts((prev) => [fromRemote(post), ...prev.filter((item) => item.id !== post.id)]);
-                addCoins(100);
-              }
+            if (!token) throw new Error('로그인이 필요해요.');
+            if (editing) {
+              const { post } = await api.updatePost(token, editing.id, { title, body, photos, visibility });
+              const mapped = fromRemote(post);
+              setUserPosts((prev) => prev.map((item) => (item.id === mapped.id ? mapped : item)));
               closeCompose();
               setTab(composeKind);
+              return;
+            }
+            const optimistic: Post = {
+              id: `local-${Date.now()}`,
+              authorId: userId,
+              user: me,
+              nickname,
+              level,
+              title,
+              body,
+              time: '방금',
+              likes: 0,
+              comments: 0,
+              photos,
+              photo: photos[0] ? { uri: photos[0] } : undefined,
+              tab: composeKind,
+            };
+            setUserPosts((prev) => [optimistic, ...prev]);
+            closeCompose();
+            setTab(composeKind);
+            try {
+              const { post } = await api.createPost(token, {
+                title,
+                body,
+                photos,
+                tab: composeKind,
+                visibility,
+              });
+              const mapped = fromRemote(post);
+              setUserPosts((prev) => [mapped, ...prev.filter((item) => item.id !== optimistic.id && item.id !== mapped.id)]);
+              addCoins(100);
             } catch {
               undefined;
             }
@@ -690,7 +710,7 @@ export function CommunityScreen() {
       ) : null}
       {pickFriend ? (
         <View style={styles.picker}>
-          <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+          <SafeAreaView style={{ flex: 1, paddingTop: top }} edges={[]}>
             <View style={styles.detailTop}>
               <Pressable style={styles.backBtn} onPress={() => setPickFriend(false)}>
                 <AppText style={styles.backTxt}>‹</AppText>
@@ -698,26 +718,26 @@ export function CommunityScreen() {
               <AppText style={styles.detailTitle}>친구와 채팅</AppText>
               <View style={styles.backBtn} />
             </View>
-            <ScrollView contentContainerStyle={styles.list}>
-              {chats.length === 0 ? (
+            <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
+              {pickList.length === 0 ? (
                 <View style={styles.empty}>
                   <AppText style={styles.emptyTitle}>채팅할 친구가 없어요</AppText>
-                  <Pressable onPress={() => { setPickFriend(false); go('friends'); }}>
+                  <Pressable onPress={() => { setPickFriend(false); go('friends'); }} hitSlop={12}>
                     <AppText style={styles.emptyHint}>친구 추가하러 가기</AppText>
                   </Pressable>
                 </View>
               ) : (
-                chats.map((row) => (
+                pickList.map((friend) => (
                   <Pressable
-                    key={row.peer.id}
-                    style={styles.chatCard}
+                    key={friend.id}
+                    style={({ pressed }) => [styles.chatCard, pressed && { opacity: 0.8 }]}
                     onPress={() => {
                       setPickFriend(false);
-                      openChat(row.peer.id);
+                      openChat(friend.id);
                     }}
                   >
-                    <Image source={asCharacterHead(row.peer.characterId)} style={styles.avatar} />
-                    <AppText style={styles.userName}>{row.peer.nickname}</AppText>
+                    <Image source={asCharacterHead(friend.characterId)} style={styles.avatar} />
+                    <AppText style={styles.userName}>{friend.nickname}</AppText>
                   </Pressable>
                 ))
               )}
@@ -725,7 +745,7 @@ export function CommunityScreen() {
           </SafeAreaView>
         </View>
       ) : null}
-      <BottomNav active="community" onChange={go} />
+      {openPost || compose || pickFriend ? null : <BottomNav active="community" onChange={go} />}
     </View>
   );
 }
@@ -733,19 +753,39 @@ export function CommunityScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.white },
   safe: { flex: 1 },
-  tabs: { flexDirection: 'row', gap: 10, paddingHorizontal: 31, marginTop: space[8], marginBottom: space[8] },
+  headerBleed: { marginHorizontal: -layout.screen },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: colors.sky,
+    paddingHorizontal: 14,
+    marginBottom: space[8],
+  },
+  searchInput: {
+    flex: 1,
+    ...fieldFont,
+    fontSize: 14,
+    color: colors.text,
+    height: 44,
+    ...(Platform.OS === 'android' ? { includeFontPadding: false } : null),
+  },
+  tabs: { flexDirection: 'row', gap: 8, paddingHorizontal: layout.screen, marginTop: 4, marginBottom: space[8], marginHorizontal: -layout.screen },
   tab: {
-    width: 106,
-    height: 32,
+    flex: 1,
+    height: 40,
     borderRadius: 999,
     backgroundColor: colors.sky,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 4,
   },
   tabOn: { backgroundColor: colors.navy },
-  tabText: { fontFamily: font.bold, fontSize: 13, lineHeight: 16, letterSpacing: 1.2, color: '#194274' },
+  tabText: { fontFamily: font.bold, fontSize: 13, lineHeight: 16, letterSpacing: 0, color: '#194274' },
   tabOnText: { color: colors.white },
-  list: { paddingHorizontal: 22, paddingTop: space[20], paddingBottom: layout.navInset, gap: space[16] },
+  list: { paddingHorizontal: layout.screen, paddingTop: 0, gap: space[16] },
   empty: { paddingTop: 48, alignItems: 'center', gap: 8 },
   emptyTitle: { fontFamily: font.bold, fontSize: 16, lineHeight: 24, color: colors.text },
   emptyHint: { fontFamily: font.medium, fontSize: 13, lineHeight: 20, color: colors.gray, textAlign: 'center' },
@@ -754,9 +794,9 @@ const styles = StyleSheet.create({
   userHit: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
   detailUser: { marginBottom: space[8] },
   meatball: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -786,14 +826,12 @@ const styles = StyleSheet.create({
     marginTop: 16,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: colors.skyCard,
+    backgroundColor: '#EEF3F8',
   },
-  photo: { width: '100%', height: 210 },
+  photo: { width: '100%' },
   actions: { flexDirection: 'row', alignItems: 'center', marginTop: 16, gap: 16 },
-  stat: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  stat: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 40, paddingRight: 8 },
   actionIcon: { width: 18, height: 18 },
-  shareBtn: { marginLeft: 'auto' },
-  shareIcon: { width: 18, height: 18 },
   statText: { fontFamily: font.medium, fontSize: 12, color: '#262626' },
   statOn: { color: '#262626' },
   msg: {
@@ -830,7 +868,6 @@ const styles = StyleSheet.create({
   chatFab: {
     position: 'absolute',
     right: 22,
-    bottom: layout.navHeight + 12,
     width: 58,
     height: 58,
     borderRadius: 29,
@@ -845,7 +882,6 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: 22,
-    bottom: layout.navHeight + 12,
     width: 64,
     height: 64,
     borderRadius: 32,
@@ -856,15 +892,15 @@ const styles = StyleSheet.create({
   detail: {
     ...StyleSheet.absoluteFill,
     backgroundColor: colors.white,
-    zIndex: 28,
+    zIndex: 40,
+    elevation: 24,
   },
   detailTop: {
-    height: 48,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: layout.screen,
-    marginTop: Platform.OS === 'web' ? STATUS_BAR_HEIGHT : 0,
     marginBottom: space[8],
   },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
@@ -872,14 +908,14 @@ const styles = StyleSheet.create({
   detailTitle: { fontFamily: font.bold, color: colors.navy, fontSize: 20, lineHeight: 28 },
   detailScroll: { paddingHorizontal: 22, paddingTop: space[16], paddingBottom: 32 },
   divider: { height: 1, backgroundColor: colors.line, marginTop: 24, marginBottom: 16 },
-  comment: { flexDirection: 'row', gap: 12, paddingVertical: 16 },
+  comment: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 16 },
   commentAvatar: { width: 32, height: 32, borderRadius: 16 },
   commentName: { fontFamily: font.bold, fontSize: 13, lineHeight: 18, color: colors.text },
   commentText: { fontFamily: font.regular, fontSize: 14, lineHeight: 20, color: colors.text, marginTop: 6 },
   commentMeta: { flexDirection: 'row', gap: 10, marginTop: 8 },
   timeInline: { fontFamily: font.regular, fontSize: 11, color: '#919191' },
   reply: { fontFamily: font.bold, fontSize: 11, color: '#919191' },
-  commentLike: { alignItems: 'center', gap: 2, minWidth: 28 },
+  commentLike: { alignItems: 'center', justifyContent: 'flex-start', gap: 2, minWidth: 40, minHeight: 44, paddingTop: 24 },
   composer: {
     flexDirection: 'row',
     alignItems: 'center',

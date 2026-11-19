@@ -1,32 +1,36 @@
 import { useState } from 'react';
-import { Image, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '../components/AppText';
 import { CHARACTERS, CharacterId, getCharacter } from '../data/characters';
 import { PrimaryButton } from '../components/PrimaryButton';
+import { BackGlyph, CloseGlyph } from '../components/NavGlyph';
 import { ShopPurchaseDialog } from '../components/ShopPurchaseDialog';
-import { STATUS_BAR_HEIGHT } from '../components/PhoneStatusBar';
+import { useAppInsets } from '../hooks/useAppInsets';
 import { useApp } from '../store/AppProvider';
 import { colors, font, layout, space } from '../theme';
 
 const CHAR_PRICE = 1000;
+const HERO_W = 200;
+const HERO_H = 236;
 
 export function DexScreen() {
-  const { go, characterId, setCharacter, ownedItems, buyItem, coins } = useApp();
+  const { go, characterId, setCharacter, ownedItems, buyItem, coins, openCoinShop } = useApp();
+  const { top, bottom } = useAppInsets();
   const [picked, setPicked] = useState<CharacterId>(characterId);
   const [buyOpen, setBuyOpen] = useState(false);
   const current = getCharacter(picked);
   const owned = ownedItems.includes(picked);
 
   return (
-    <SafeAreaView style={styles.safe} edges={[]}>
+    <SafeAreaView style={[styles.safe, { paddingTop: top, paddingBottom: bottom }]} edges={[]}>
       <View style={styles.top}>
-        <Pressable onPress={() => go('profile')} style={styles.iconBtn}>
-          <Image source={require('../../assets/ui/chevron.png')} style={styles.backIcon} />
+        <Pressable onPress={() => go('profile')} style={styles.iconBtn} hitSlop={12}>
+          <BackGlyph />
         </Pressable>
         <AppText variant="heading">캐릭터</AppText>
-        <Pressable onPress={() => go('home')} style={styles.iconBtn}>
-          <Image source={require('../../assets/ui/close.png')} style={styles.closeIcon} />
+        <Pressable onPress={() => go('home')} style={styles.iconBtn} hitSlop={12}>
+          <CloseGlyph />
         </Pressable>
       </View>
 
@@ -34,7 +38,13 @@ export function DexScreen() {
         <View style={styles.badge}>
           <AppText style={styles.badgeText}>{current.name}</AppText>
         </View>
-        <Image source={current.body} style={[styles.hero, !owned && styles.heroLocked]} resizeMode="contain" />
+        <View style={styles.heroStage}>
+          <Image
+            source={current.body}
+            style={[styles.hero, !owned && styles.heroLocked]}
+            resizeMode="contain"
+          />
+        </View>
       </View>
 
       <View style={styles.sheet}>
@@ -43,11 +53,12 @@ export function DexScreen() {
         <View style={styles.grid}>
           {CHARACTERS.map((character) => {
             const locked = !ownedItems.includes(character.id);
+            const selected = picked === character.id;
             return (
               <Pressable
                 key={character.id}
                 onPress={() => setPicked(character.id)}
-                style={[styles.cell, picked === character.id && styles.cellOn]}
+                style={[styles.cell, selected && styles.cellOn]}
               >
                 <Image
                   source={character.head}
@@ -61,7 +72,7 @@ export function DexScreen() {
             );
           })}
         </View>
-        <View style={styles.bottom}>
+        <View style={styles.cta}>
           {owned ? (
             <PrimaryButton
               label="내 캐릭터 바꾸기"
@@ -86,6 +97,10 @@ export function DexScreen() {
             setBuyOpen(false);
             go('home');
           }}
+          onCharge={() => {
+            setBuyOpen(false);
+            openCoinShop();
+          }}
           onBuy={() => {
             if (buyItem(picked, CHAR_PRICE)) {
               setCharacter(picked);
@@ -102,7 +117,6 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.white,
-    paddingTop: Platform.OS === 'web' ? STATUS_BAR_HEIGHT : 0,
   },
   top: {
     flexDirection: 'row',
@@ -111,9 +125,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: layout.header,
     height: 40,
   },
-  iconBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  backIcon: { width: 14, height: 12, transform: [{ rotate: '180deg' }] },
-  closeIcon: { width: 22, height: 22 },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
   heroBlock: { alignItems: 'center', paddingTop: space[20], paddingBottom: space[8] },
   badge: {
     backgroundColor: colors.sky,
@@ -130,7 +149,17 @@ const styles = StyleSheet.create({
     letterSpacing: -0.45,
     color: colors.muted,
   },
-  hero: { width: 200, height: 220, marginTop: space[12] },
+  heroStage: {
+    width: HERO_W,
+    height: HERO_H,
+    marginTop: space[12],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hero: {
+    width: HERO_W,
+    height: HERO_H,
+  },
   heroLocked: { opacity: 0.38 },
   sheet: {
     flex: 1,
@@ -140,7 +169,14 @@ const styles = StyleSheet.create({
     paddingTop: space[16],
   },
   section: { fontFamily: font.semiBold, fontSize: 18, lineHeight: 20, color: colors.navy },
-  hint: { color: colors.muted, fontFamily: font.regular, fontSize: 12, lineHeight: 20, marginTop: 6, marginBottom: space[16] },
+  hint: {
+    color: colors.muted,
+    fontFamily: font.regular,
+    fontSize: 12,
+    lineHeight: 20,
+    marginTop: 6,
+    marginBottom: space[16],
+  },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 26 },
   cell: {
     width: '23%',
@@ -156,9 +192,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  cellOn: { borderColor: colors.navy, borderWidth: 1 },
-  cellImg: { width: 64, height: 66 },
+  cellOn: { borderColor: colors.navy, borderWidth: 2 },
+  cellImg: { width: 66, height: 66 },
   cellImgLocked: { opacity: 0.35 },
   lock: { position: 'absolute', width: 22, height: 22, tintColor: '#5A5A5A' },
-  bottom: { marginTop: 'auto', paddingBottom: space[24], paddingHorizontal: 0 },
+  cta: { marginTop: 'auto', paddingBottom: space[12], paddingHorizontal: 0 },
 });

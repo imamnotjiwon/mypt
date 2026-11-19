@@ -11,7 +11,11 @@ type Props = {
 
 export function PrimaryButton({ label, onPress, disabled }: Props) {
   return (
-    <Pressable onPress={onPress} disabled={disabled} style={styles.wrap}>
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => [styles.wrap, pressed && !disabled && styles.pressed]}
+    >
       <LinearGradient colors={[...gradient.button]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={[styles.btn, disabled && styles.disabled]}>
         <AppText variant="button" style={styles.label}>
           {label}
@@ -33,6 +37,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  pressed: { opacity: 0.86 },
   disabled: {
     opacity: 0.45,
   },

@@ -1,13 +1,14 @@
-import { useState } from 'react';
-import { Image, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Image, type ImageStyle, Platform, Pressable, ScrollView, StyleSheet, TextInput, TextStyle, View, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '../components/AppText';
 import { ChoiceCard, ChoiceRow } from '../components/Choice';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { ProgressBar } from '../components/ProgressBar';
-import { STATUS_BAR_HEIGHT } from '../components/PhoneStatusBar';
+import { useAppInsets } from '../hooks/useAppInsets';
 import { SurveyData, useApp } from '../store/AppProvider';
-import { colors, fieldFont, fieldFontBold, font, layout, radius, space } from '../theme';
+import { FREQUENCY_OPTIONS, WEEKDAYS, clampWorkoutDays, maxWorkoutDays, minWorkoutDays, workoutDaysValid } from '../data/schedule';
+import { colors, fieldFontBold, font, layout, radius, space } from '../theme';
 
 const PLACES = [
   { id: '집', title: '집', subtitle: '언제든 편안하게 내 집에서', icon: require('../../assets/survey/place-home.png') },
@@ -41,16 +42,57 @@ function toggle(list: string[], value: string) {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 }
 
+function SurveyNumberField({
+  label,
+  unit,
+  value,
+  onChangeText,
+  style,
+}: {
+  label: string;
+  unit: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  style?: ViewStyle;
+}) {
+  const input = useRef<TextInput>(null);
+  return (
+    <Pressable onPress={() => input.current?.focus()} style={[styles.inputCard, style]}>
+      <AppText variant="label" style={styles.label} pointerEvents="none">
+        {label}
+      </AppText>
+      <TextInput
+        ref={input}
+        style={styles.inputFill}
+        keyboardType="number-pad"
+        placeholderTextColor={colors.gray}
+        selectionColor={colors.navy}
+        underlineColorAndroid="transparent"
+        maxLength={3}
+        value={value}
+        onChangeText={onChangeText}
+      />
+      <AppText style={styles.unit} pointerEvents="none">
+        {unit}
+      </AppText>
+    </Pressable>
+  );
+}
+
 export function SurveyScreen() {
   const { saveSurvey, survey } = useApp();
+  const { top } = useAppInsets();
   const [step, setStep] = useState(0);
-  const [data, setData] = useState<SurveyData>(survey);
+  const [data, setData] = useState<SurveyData>({
+    ...survey,
+    workoutDays: survey.workoutDays ?? [],
+  });
   const [readyOpen, setReadyOpen] = useState(false);
 
   const canNext =
     (step === 0 && data.age && data.gender && data.height && data.weight) ||
     (step === 1 && data.places.length > 0 && data.equipment.length > 0) ||
-    (step === 2 && data.goal && data.frequency && data.focus.length > 0) ||
+    (step === 2 && data.goal && data.frequency && data.focus.length > 0 && workoutDaysValid(data.workoutDays, data.frequency)) ||
     (step === 3 && (data.cautions.length > 0 || data.noCautions)) ||
     (step === 4 && !!data.experience);
 
@@ -61,7 +103,7 @@ export function SurveyScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={[]}>
+    <SafeAreaView style={[styles.safe, { paddingTop: top + space[8] }]} edges={[]}>
       <View style={styles.progressWrap}>
         <ProgressBar
           value={readyOpen ? 1 : (step + 1) / 6}
@@ -78,24 +120,7 @@ export function SurveyScreen() {
             <AppText variant="sub" style={styles.sub}>
               소중한 정보는 외부에 공개되지 않아요.
             </AppText>
-            <View style={styles.inputCard}>
-              <AppText variant="label" style={styles.label}>
-                나이
-              </AppText>
-              <View style={styles.valueRow}>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="number-pad"
-                  placeholderTextColor={colors.gray}
-                  selectionColor={colors.navy}
-                  underlineColorAndroid="transparent"
-                  maxLength={3}
-                  value={data.age}
-                  onChangeText={(age) => setData({ ...data, age })}
-                />
-                <AppText style={styles.unit}>살</AppText>
-              </View>
-            </View>
+            <SurveyNumberField label="나이" unit="살" value={data.age} onChangeText={(age) => setData({ ...data, age })} />
             <View style={styles.genderRow}>
               <ChoiceCard
                 title="남성"
@@ -115,35 +140,28 @@ export function SurveyScreen() {
               />
             </View>
             <View style={styles.row}>
-              <View style={[styles.inputCard, styles.half]}>
-                <AppText variant="label" style={styles.label}>
-                  키
-                </AppText>
-                <View style={styles.valueRow}>
-                  <TextInput style={styles.input} keyboardType="number-pad" maxLength={3} selectionColor={colors.navy} underlineColorAndroid="transparent" value={data.height} onChangeText={(height) => setData({ ...data, height })} />
-                  <AppText style={styles.unit}>cm</AppText>
-                </View>
-              </View>
-              <View style={[styles.inputCard, styles.half]}>
-                <AppText variant="label" style={styles.label}>
-                  몸무게
-                </AppText>
-                <View style={styles.valueRow}>
-                  <TextInput style={styles.input} keyboardType="number-pad" maxLength={3} selectionColor={colors.navy} underlineColorAndroid="transparent" value={data.weight} onChangeText={(weight) => setData({ ...data, weight })} />
-                  <AppText style={styles.unit}>kg</AppText>
-                </View>
-              </View>
+              <SurveyNumberField
+                label="키"
+                unit="cm"
+                value={data.height}
+                onChangeText={(height) => setData({ ...data, height })}
+                style={styles.half}
+              />
+              <SurveyNumberField
+                label="몸무게"
+                unit="kg"
+                value={data.weight}
+                onChangeText={(weight) => setData({ ...data, weight })}
+                style={styles.half}
+              />
             </View>
             <AppText variant="title">달성하고 싶은 목표 몸무게가 있나요?</AppText>
-            <View style={styles.inputCard}>
-              <AppText variant="label" style={styles.label}>
-                목표
-              </AppText>
-              <View style={styles.valueRow}>
-                <TextInput style={styles.input} keyboardType="number-pad" maxLength={3} selectionColor={colors.navy} underlineColorAndroid="transparent" value={data.goalWeight} onChangeText={(goalWeight) => setData({ ...data, goalWeight })} />
-                <AppText style={styles.unit}>kg</AppText>
-              </View>
-            </View>
+            <SurveyNumberField
+              label="목표"
+              unit="kg"
+              value={data.goalWeight}
+              onChangeText={(goalWeight) => setData({ ...data, goalWeight })}
+            />
           </>
         )}
 
@@ -207,9 +225,50 @@ export function SurveyScreen() {
                 <AppText variant="title" style={{ marginTop: space[20] }}>
                   일주일에 몇 번 운동 하시나요?
                 </AppText>
-                {['1-2', '3-4', '5+'].map((item) => (
-                  <ChoiceRow key={item} title={item} selected={data.frequency === item} onPress={() => setData({ ...data, frequency: item })} />
+                {FREQUENCY_OPTIONS.map((item) => (
+                  <ChoiceRow
+                    key={item.id}
+                    title={item.title}
+                    subtitle={item.subtitle}
+                    selected={data.frequency === item.id}
+                    onPress={() =>
+                      setData({
+                        ...data,
+                        frequency: item.id,
+                        workoutDays: clampWorkoutDays(data.workoutDays, item.id),
+                      })
+                    }
+                  />
                 ))}
+              </>
+            ) : null}
+            {data.frequency ? (
+              <>
+                <AppText variant="title" style={{ marginTop: space[20] }}>
+                  운동할 요일을 골라 주세요.
+                </AppText>
+                <AppText variant="sub" style={styles.sub}>
+                  {FREQUENCY_OPTIONS.find((item) => item.id === data.frequency)?.title}에 맞춰 {minWorkoutDays(data.frequency)}~{maxWorkoutDays(data.frequency)}일을 선택해요.
+                </AppText>
+                <View style={styles.dayRow}>
+                  {WEEKDAYS.map((day) => {
+                    const on = data.workoutDays.includes(day);
+                    return (
+                      <Pressable
+                        key={day}
+                        style={[styles.dayChip, on && styles.dayChipOn]}
+                        onPress={() => {
+                          const next = on
+                            ? data.workoutDays.filter((item) => item !== day)
+                            : clampWorkoutDays([...data.workoutDays, day], data.frequency);
+                          setData({ ...data, workoutDays: next });
+                        }}
+                      >
+                        <AppText style={[styles.dayTxt, on && styles.dayTxtOn]}>{day}</AppText>
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </>
             ) : null}
             {data.frequency ? (
@@ -247,7 +306,7 @@ export function SurveyScreen() {
               style={[styles.none, data.noCautions && styles.noneOn]}
               onPress={() => setData({ ...data, noCautions: true, cautions: [] })}
             >
-              <Image source={require('../../assets/survey/eq-none.png')} style={styles.noneIcon} resizeMode="contain" />
+              <Image source={require('../../assets/survey/eq-none.png')} style={styles.noneIcon as ImageStyle} resizeMode="contain" />
               <AppText variant="body" style={[styles.noneText, data.noCautions && styles.noneTextOn]}>
                 없음
               </AppText>
@@ -279,7 +338,7 @@ export function SurveyScreen() {
             <AppText variant="body" style={styles.sheetLead}>
               이제 회원님만의 맞춤 루틴을 만나러 가볼까요?
             </AppText>
-            <Image source={require('../../assets/characters/ready-popup.png')} style={styles.sheetImg} resizeMode="contain" />
+            <Image source={require('../../assets/characters/ready-popup.png')} style={styles.sheetImg as ImageStyle} resizeMode="contain" />
             <View style={styles.infoBox}>
               <AppText variant="caption" style={styles.sheetBullet}>
                 •  회원님 정보를 바탕으로 맞춤 루틴을 생성 중이에요.
@@ -303,7 +362,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.white,
     paddingHorizontal: layout.screen,
-    paddingTop: (Platform.OS === 'web' ? STATUS_BAR_HEIGHT : space[8]) + space[24],
     position: 'relative',
   },
   content: { paddingTop: space[20], paddingBottom: space[24], gap: space[12] },
@@ -317,36 +375,47 @@ const styles = StyleSheet.create({
     padding: space[24],
     minHeight: 96,
     justifyContent: 'space-between',
+    overflow: 'hidden',
+    ...(Platform.OS === 'web' ? ({ cursor: 'text' } as unknown as ViewStyle) : null),
   },
   half: { flex: 1 },
-  label: { color: colors.navyInk },
-  valueRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    marginTop: space[8],
-    minHeight: 36,
-  },
-  input: {
-    width: 72,
+  label: { color: colors.navyInk, zIndex: 1 },
+  inputFill: {
+    ...StyleSheet.absoluteFill,
+    paddingHorizontal: space[24],
+    paddingTop: 44,
+    paddingBottom: 18,
+    paddingRight: 58,
     ...fieldFontBold,
     fontSize: 28,
-    ...(Platform.OS === 'android' ? { height: 40, includeFontPadding: false, textAlignVertical: 'center' } : { lineHeight: 36, height: 36 }),
     color: colors.navy,
-    padding: 0,
-    margin: 0,
-    // @ts-expect-error web
-    outlineStyle: 'none',
+    ...(Platform.OS === 'android' ? { includeFontPadding: false, textAlignVertical: 'bottom' } : null),
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null),
   },
   unit: {
+    alignSelf: 'flex-end',
     color: colors.navy,
     fontFamily: font.bold,
     fontSize: 16,
     lineHeight: 22,
-    paddingBottom: 5,
+    zIndex: 1,
   },
   row: { flexDirection: 'row', gap: space[12] },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space[12] },
+  dayRow: { flexDirection: 'row', gap: 6 },
+  dayChip: {
+    flex: 1,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: colors.white,
+    borderWidth: 1.5,
+    borderColor: '#E8EEF3',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayChipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
+  dayTxt: { fontFamily: font.bold, color: colors.navy, fontSize: 13, lineHeight: 18 },
+  dayTxtOn: { color: colors.white },
   none: {
     alignSelf: 'center',
     marginTop: space[8],

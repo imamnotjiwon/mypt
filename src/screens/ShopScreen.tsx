@@ -3,11 +3,15 @@ import { Image, ImageSourcePropType, Pressable, ScrollView, StyleSheet, View } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '../components/AppText';
 import { BottomNav } from '../components/BottomNav';
+import { CharacterHero } from '../components/CharacterHero';
 import { CoinMark } from '../components/Marks';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ShopPurchaseDialog } from '../components/ShopPurchaseDialog';
 import { getCharacter } from '../data/characters';
+import { heroBodySource } from '../data/outfit';
 import { useApp } from '../store/AppProvider';
+import { useAppInsets } from '../hooks/useAppInsets';
+import { useDesignScale } from '../hooks/useDesignScale';
 import { colors, font, layout, shadow, space } from '../theme';
 
 type Category = '전체' | '상의' | '바지' | '겉옷' | '모자' | '악세서리';
@@ -39,13 +43,15 @@ const CATALOG: Item[] = [
 ];
 
 export function ShopScreen() {
-  const { go, nickname, coins, characterId, ownedItems, buyItem } = useApp();
+  const { go, nickname, coins, characterId, ownedItems, buyItem, equipItem, equippedItem, openCoinShop } = useApp();
+  const { navInset } = useAppInsets();
+  const s = useDesignScale();
+  const thumb = Math.round(96 * s);
+  const thumbImg = Math.round(84 * s);
   const character = getCharacter(characterId);
-  const [equipped, setEquipped] = useState('jacket');
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [category, setCategory] = useState<Category>('전체');
   const [menuOpen, setMenuOpen] = useState(false);
-  const wearingJacket = characterId === 'otter' && equipped === 'jacket';
   const pending = CATALOG.find((item) => item.id === pendingId) ?? null;
   const items = useMemo(
     () =>
@@ -59,78 +65,83 @@ export function ShopScreen() {
   return (
     <View style={styles.root}>
       <SafeAreaView style={styles.safe} edges={[]}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <View style={styles.heroSection}>
-            <Image source={require('../../assets/ui/home-hero.png')} style={styles.heroBg} resizeMode="cover" />
-            <ScreenHeader
-              nickname={nickname}
-              coins={coins}
-              characterId={characterId}
-              onPressProfile={() => go('profile')}
-              showCoins={false}
-            />
-            <Image
-              source={wearingJacket ? require('../../assets/shop/otter-jacket.png') : character.body}
-              style={styles.hero}
-              resizeMode="contain"
-            />
-            <View style={styles.heroMeta}>
-              <Pressable style={styles.filter} onPress={() => setMenuOpen((open) => !open)}>
-                <AppText variant="caption" style={styles.filterText}>
-                  {category === '전체' ? '의상' : category}
-                </AppText>
-                <AppText style={styles.chevron}>{menuOpen ? '▴' : '▾'}</AppText>
-              </Pressable>
-              {menuOpen ? (
-                <View style={styles.menu}>
-                  {CATEGORIES.map((item) => (
-                    <Pressable
-                      key={item}
-                      style={[styles.menuItem, category === item && styles.menuItemOn]}
-                      onPress={() => {
-                        setCategory(item);
-                        setMenuOpen(false);
-                      }}
-                    >
-                      <AppText style={[styles.menuTxt, category === item && styles.menuTxtOn]}>{item}</AppText>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : null}
-            </View>
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: navInset }]} showsVerticalScrollIndicator={false}>
+          <CharacterHero
+            characterSource={heroBodySource(characterId, equippedItem)}
+            characterId={characterId}
+            header={
+              <ScreenHeader
+                nickname={nickname}
+                coins={coins}
+                characterId={characterId}
+                onPressProfile={() => go('profile')}
+                onPressCoins={openCoinShop}
+              />
+            }
+          />
+
+          <View style={styles.toolbar}>
+            <Pressable style={styles.filter} onPress={() => setMenuOpen((open) => !open)} hitSlop={8}>
+              <AppText variant="caption" style={styles.filterText}>
+                {category}
+              </AppText>
+              <Image
+                source={require('../../assets/ui/icon-dropdown.png')}
+                style={[styles.dropIcon, menuOpen && styles.dropIconOpen]}
+                resizeMode="contain"
+              />
+            </Pressable>
           </View>
 
-          <View style={styles.grid}>
-            {items.map((item) => (
-              <Pressable
-                key={item.id}
-                style={styles.cell}
-                onPress={() => {
-                  if (item.owned) {
-                    setEquipped(item.id);
-                    return;
-                  }
-                  setPendingId(item.id);
-                }}
-              >
-                {item.isNew ? <Image source={require('../../assets/shop/new.png')} style={styles.newBadge} /> : null}
-                <View style={styles.thumb}>
-                  <Image source={item.image} style={styles.thumbImg} resizeMode="contain" />
-                </View>
-                {item.owned ? (
-                  <AppText variant="caption" style={styles.owned}>
-                    보유중
-                  </AppText>
-                ) : (
-                  <View style={styles.priceRow}>
-                    <CoinMark size={16} />
-                    <AppText variant="caption" style={styles.price}>
-                      {item.price}
-                    </AppText>
+          <View style={styles.gridSection}>
+            {menuOpen ? (
+              <View style={styles.menu}>
+                {CATEGORIES.map((item) => (
+                  <Pressable
+                    key={item}
+                    style={[styles.menuItem, category === item && styles.menuItemOn]}
+                    onPress={() => {
+                      setCategory(item);
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <AppText style={[styles.menuTxt, category === item && styles.menuTxtOn]}>{item}</AppText>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+            <View style={styles.grid}>
+              {items.map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={({ pressed }) => [styles.cell, pressed && { opacity: 0.72 }]}
+                  onPress={() => {
+                    if (item.owned) {
+                      equipItem(item.id);
+                      return;
+                    }
+                    setPendingId(item.id);
+                  }}
+                >
+                  {item.isNew ? <Image source={require('../../assets/shop/new.png')} style={styles.newBadge} /> : null}
+                  <View style={[styles.thumb, { width: thumb, height: thumb }, equippedItem === item.id && styles.thumbOn]}>
+                    <Image source={item.image} style={{ width: thumbImg, height: thumbImg }} resizeMode="contain" />
                   </View>
-                )}
-              </Pressable>
-            ))}
+                  {item.owned ? (
+                    <AppText variant="caption" style={[styles.owned, equippedItem === item.id && styles.equipped]}>
+                      {equippedItem === item.id ? '착용중' : '보유중'}
+                    </AppText>
+                  ) : (
+                    <View style={styles.priceRow}>
+                      <CoinMark size={16} />
+                      <AppText variant="caption" style={styles.price}>
+                        {item.price}
+                      </AppText>
+                    </View>
+                  )}
+                </Pressable>
+              ))}
+            </View>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -144,8 +155,12 @@ export function ShopScreen() {
             setPendingId(null);
             go('home');
           }}
+          onCharge={() => {
+            setPendingId(null);
+            openCoinShop();
+          }}
           onBuy={() => {
-            if (buyItem(pending.id, pending.price)) setEquipped(pending.id);
+            if (buyItem(pending.id, pending.price)) equipItem(pending.id);
             setPendingId(null);
           }}
         />
@@ -158,15 +173,14 @@ export function ShopScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.white, position: 'relative' },
   safe: { flex: 1, backgroundColor: 'transparent' },
-  scroll: { paddingBottom: layout.navInset },
-  heroSection: { height: 355, overflow: 'visible' },
-  heroBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 355 },
-  hero: { width: 168, height: 210, alignSelf: 'center' },
-  heroMeta: {
-    position: 'absolute',
-    left: layout.screen,
-    bottom: 16,
-    zIndex: 6,
+  scroll: {},
+  toolbar: {
+    alignItems: 'flex-end',
+    paddingHorizontal: layout.screen,
+    marginTop: -36,
+    paddingTop: 0,
+    paddingBottom: space[8],
+    zIndex: 8,
   },
   filter: {
     flexDirection: 'row',
@@ -175,16 +189,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#D9ECFF',
     borderRadius: 999,
+    minHeight: 40,
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: 8,
     gap: 6,
-    minWidth: 88,
-    justifyContent: 'center',
   },
   filterText: { fontFamily: font.bold, color: '#263129' },
-  chevron: { color: colors.navy, fontSize: 10 },
+  dropIcon: { width: 14, height: 9 },
+  dropIconOpen: { transform: [{ rotate: '180deg' }] },
+  gridSection: { position: 'relative', zIndex: 7 },
   menu: {
-    marginTop: 8,
+    position: 'absolute',
+    top: 0,
+    right: layout.screen,
+    zIndex: 8,
     backgroundColor: colors.white,
     borderRadius: 16,
     borderWidth: 1,
@@ -193,7 +211,7 @@ const styles = StyleSheet.create({
     minWidth: 128,
     ...shadow.soft,
   },
-  menuItem: { paddingHorizontal: 16, paddingVertical: 12 },
+  menuItem: { paddingHorizontal: 16, paddingVertical: 14, minHeight: 44, justifyContent: 'center' },
   menuItemOn: { backgroundColor: colors.sky },
   menuTxt: { fontFamily: font.medium, fontSize: 14, color: colors.text },
   menuTxtOn: { fontFamily: font.bold, color: colors.navy },
@@ -217,9 +235,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.skyCard,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
+  thumbOn: { borderColor: colors.navy, backgroundColor: '#EAF4FF' },
   thumbImg: { width: 84, height: 84 },
   owned: { fontFamily: font.bold, color: '#263129', marginTop: 4 },
+  equipped: { color: colors.navy },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   price: { fontFamily: font.bold, color: '#263129' },
 });

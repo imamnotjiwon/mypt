@@ -1,7 +1,8 @@
 import { Image, ImageSourcePropType, Pressable, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppText } from './AppText';
-import { colors, font, gradient, layout, shadow } from '../theme';
+import { useAppInsets } from '../hooks/useAppInsets';
+import { colors, font, gradient, shadow } from '../theme';
 import { ScreenName } from '../store/AppProvider';
 
 const TABS: {
@@ -60,38 +61,47 @@ type Props = {
 };
 
 export function BottomNav({ active, onChange }: Props) {
+  const { bottom, navHeight } = useAppInsets();
   return (
-    <View style={styles.wrap} pointerEvents="box-none">
-      <View style={styles.bar}>
-        {TABS.map((tab) => {
-          const selected = tab.key === active;
-          const icon = (
-            <Image
-              source={selected ? tab.on : tab.off}
-              style={{ width: tab.width, height: tab.height }}
-              resizeMode="contain"
-            />
-          );
-          const inner = (
-            <>
-              <View style={styles.iconSlot}>{icon}</View>
-              <AppText variant="nav" style={selected ? styles.activeLabel : styles.label}>
-                {tab.label}
-              </AppText>
-            </>
-          );
-          return (
-            <Pressable key={tab.key} onPress={() => onChange(tab.key)} style={styles.item}>
-              {selected ? (
-                <LinearGradient colors={[...gradient.nav]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={styles.tabInner}>
-                  {inner}
-                </LinearGradient>
-              ) : (
-                <View style={styles.tabInner}>{inner}</View>
-              )}
-            </Pressable>
-          );
-        })}
+    <View style={[styles.wrap, { height: navHeight }]} pointerEvents="box-none">
+      <View style={[styles.bar, { paddingBottom: bottom }]}>
+        <View style={styles.row}>
+          {TABS.map((tab) => {
+            const selected = tab.key === active;
+            const icon = (
+              <Image
+                source={selected ? tab.on : tab.off}
+                style={{ width: tab.width, height: tab.height }}
+                resizeMode="contain"
+              />
+            );
+            const inner = (
+              <>
+                <View style={styles.iconSlot}>{icon}</View>
+                <AppText variant="nav" style={selected ? styles.activeLabel : styles.label}>
+                  {tab.label}
+                </AppText>
+              </>
+            );
+            return (
+              <Pressable
+                key={tab.key}
+                onPress={() => onChange(tab.key)}
+                style={({ pressed }) => [styles.item, pressed && !selected && styles.pressed]}
+                android_ripple={{ color: 'rgba(25,67,115,0.12)', borderless: true }}
+                hitSlop={4}
+              >
+                {selected ? (
+                  <LinearGradient colors={[...gradient.nav]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={styles.tabInner}>
+                    {inner}
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.tabInner}>{inner}</View>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
     </View>
   );
@@ -103,35 +113,39 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: layout.navHeight,
   },
   bar: {
     flex: 1,
     backgroundColor: colors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    paddingHorizontal: 4,
+    paddingTop: 6,
+    ...shadow.nav,
+  },
+  row: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingHorizontal: 4,
-    ...shadow.nav,
   },
   item: {
-    width: 72,
-    height: 72,
+    flex: 1,
+    height: 56,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  pressed: { opacity: 0.7 },
   tabInner: {
-    width: 70,
-    height: 72,
-    borderRadius: 22,
+    width: 68,
+    height: 56,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
   },
   iconSlot: {
-    height: 28,
+    height: 26,
     alignItems: 'center',
     justifyContent: 'center',
   },

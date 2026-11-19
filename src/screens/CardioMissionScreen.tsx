@@ -36,24 +36,20 @@ export function CardioMissionScreen() {
 
   useEffect(() => {
     if (!mission || mission.done) return;
-    saveMissionProgress(mission.id, elapsedMs / 60000);
-  }, [elapsedSec, mission?.id]);
+    const id = setInterval(() => {
+      saveMissionProgress(mission.id, elapsedMsRef.current / 60000);
+    }, 5000);
+    return () => clearInterval(id);
+  }, [mission?.id, mission?.done]);
 
   useEffect(() => {
     if (paused || done || !mission || mission.done) return;
-    let last = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    let raf = 0;
-    const tick = (now: number) => {
-      const dt = now - last;
-      if (dt >= 32) {
-        last = now;
-        setElapsedMs((ms) => Math.min(targetMs, ms + dt));
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [paused, done, mission, targetMs]);
+    const origin = Date.now() - elapsedMsRef.current;
+    const id = setInterval(() => {
+      setElapsedMs(Math.min(targetMs, Date.now() - origin));
+    }, 200);
+    return () => clearInterval(id);
+  }, [paused, done, mission?.id, mission?.done, targetMs]);
 
   const leave = () => {
     if (mission && !mission.done) saveMissionProgress(mission.id, elapsedMsRef.current / 60000);

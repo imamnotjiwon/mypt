@@ -1,7 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { CharacterId } from '../data/characters';
-import { DailyMission, isRolledMission, pickDailyMissions, todayKey } from '../data/missions';
+import { DailyMission, isRolledMission, pickDailyMissions, todayKey, yesterdayKey } from '../data/missions';
+import { defaultWorkoutDays } from '../data/schedule';
+import { liveStreakDays } from '../data/streak';
+import { currentWeekKey, WEEKLY_BONUS_COINS, WEEKLY_BONUS_XP, WEEKLY_STEPS_GOAL } from '../data/weekly';
+import { WorkoutDay, dayFromMissions, daysInWeek, isWorkoutDay, sumDays, upsertWorkoutDay } from '../data/workoutLog';
+import { useSteps } from '../hooks/useSteps';
 import * as api from '../api';
 
 export type ScreenName =
@@ -18,11 +23,13 @@ export type ScreenName =
   | 'shop'
   | 'community'
   | 'profile'
+  | 'profileEdit'
   | 'dex'
   | 'friends'
   | 'pushup'
   | 'cardio'
-  | 'chat';
+  | 'chat'
+  | 'coinShop';
 
 export type SurveyData = {
   age: string;
@@ -34,6 +41,7 @@ export type SurveyData = {
   equipment: string[];
   goal: string | null;
   frequency: string | null;
+  workoutDays: string[];
   focus: string[];
   cautions: string[];
   noCautions: boolean;
@@ -54,20 +62,29 @@ type AppState = {
   streakDays: number;
   survey: SurveyData;
   missions: Mission[];
+  workoutLogs: WorkoutDay[];
   activeMission: Mission | null;
   chatPeerId: string | null;
   weeklyStepsGoal: number;
   weeklyStepsCurrent: number;
+  todaySteps: number;
+  stepWeek: number[];
+  weeklyBonusClaimed: boolean;
+  pendingWeeklyReward: { coins: number; xp: number } | null;
+  dismissWeeklyReward: () => void;
   ownedItems: string[];
+  equippedItem: string;
   pendingUsername: string;
   userId: string;
   token: string | null;
+  nicknameChanges: number;
   go: (screen: ScreenName) => void;
   login: (username: string, password: string) => Promise<void>;
   signup: (input: { nickname: string; username: string; password: string }) => Promise<void>;
   resetPassword: (input: { username: string; nickname: string; password: string }) => Promise<void>;
   logout: () => void;
   saveSurvey: (data: SurveyData) => void;
+  updateProfile: (input: { nickname: string; survey: SurveyData }) => Promise<void>;
   setCharacter: (id: CharacterId) => void;
   selectCharacter: (id: CharacterId) => void;
   finishOnboarding: () => void;
@@ -78,10 +95,13 @@ type AppState = {
   completeMission: (id: string, coinReward: number, xpReward: number) => void;
   addCoins: (amount: number) => void;
   buyItem: (id: string, price: number) => boolean;
+  equipItem: (id: string) => void;
+  openCoinShop: () => void;
+  closeCoinShop: () => void;
 };
 
 const STORAGE_KEY = 'mypt-state-v4';
-const OVERLAY_SCREENS: ScreenName[] = ['profile', 'dex', 'friends', 'pushup', 'cardio', 'chat'];
+const OVERLAY_SCREENS: ScreenName[] = ['profile', 'profileEdit', 'dex', 'friends', 'pushup', 'cardio', 'chat', 'coinShop'];
 const AUTH_SCREENS: ScreenName[] = ['login', 'signup', 'findPassword'];
 const TAB_SCREENS: ScreenName[] = ['home', 'quest', 'exercise', 'shop', 'community'];
 const CHARACTER_IDS: CharacterId[] = ['otter', 'rabbit', 'cat', 'gorilla', 'dog', 'hamster', 'sloth', 'bear'];
@@ -96,6 +116,7 @@ const defaultSurvey: SurveyData = {
   equipment: [],
   goal: null,
   frequency: null,
+  workoutDays: [],
   focus: [],
   cautions: [],
   noCautions: false,
@@ -142,15 +163,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [survey, setSurvey] = useState<SurveyData>(defaultSurvey);
   const [missions, setMissions] = useState<Mission[]>(defaultMissions);
   const [missionsDate, setMissionsDate] = useState('');
+  const [workoutLogs, setWorkoutLogs] = useState<WorkoutDay[]>([]);
+  const [streakDate, setStreakDate] = useState('');
   const [activeMissionId, setActiveMissionId] = useState<string | null>(null);
   const [chatPeerId, setChatPeerId] = useState<string | null>(null);
-  const [weeklyStepsGoal] = useState(50000);
-  const [weeklyStepsCurrent] = useState(0);
+  const [weeklyStepsGoal] = useState(WEEKLY_STEPS_GOAL);
+  const { todaySteps, week: stepWeek, deviceWeekSteps } = useSteps();
+  const weeklyStepsCurrent = useMemo(() => {
+    const missionSteps = Math.round(sumDays(daysInWeek(workoutLogs, new Date(), missions)).steps);
+    return missionSteps + deviceWeekSteps;
+  }, [workoutLogs, missions, deviceWeekSteps]);
+  const [weeklyBonusWeek, setWeeklyBonusWeek] = useState('');
+  const [pendingWeeklyReward, setPendingWeeklyReward] = useState<{ coins: number; xp: number } | null>(null);
+  const weeklyAwardLock = useRef('');
   const [ownedItems, setOwnedItems] = useState<string[]>(['jacket']);
+  const [equippedItem, setEquippedItem] = useState('jacket');
   const [token, setToken] = useState<string | null>(null);
   const [userId, setUserId] = useState('');
   const [onboarded, setOnboarded] = useState(false);
   const [pendingUsername, setPendingUsername] = useState('');
+  const [nicknameChanges, setNicknameChanges] = useState(0);
+  const [coinShopReturn, setCoinShopReturn] = useState<ScreenName>('profile');
 
   const hydrate = (user: api.RemoteUser, localDate?: string) => {
     setUserId(user.id);
@@ -158,14 +191,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCoins(user.coins);
     setLevel(user.level);
     setXp(user.xp);
-    setStreakDays(user.streakDays);
+    setStreakDays(liveStreakDays(user.streakDays, typeof user.streakDate === 'string' ? user.streakDate : ''));
     setCharacterId(asCharacterId(user.characterId));
     setOnboarded(!!user.onboarded);
-    const nextSurvey = user.survey ? { ...defaultSurvey, ...(user.survey as Partial<SurveyData>) } : defaultSurvey;
+    const nextSurvey = user.survey
+      ? {
+          ...defaultSurvey,
+          ...(user.survey as Partial<SurveyData>),
+          workoutDays: Array.isArray((user.survey as Partial<SurveyData>).workoutDays)
+            ? ((user.survey as Partial<SurveyData>).workoutDays as string[])
+            : [],
+        }
+      : defaultSurvey;
     setSurvey(nextSurvey);
     const daily = resolveDailyMissions(user, nextSurvey, localDate);
     setMissions(daily.missions);
     setMissionsDate(daily.missionsDate);
+    setWorkoutLogs(Array.isArray(user.workoutLogs) ? user.workoutLogs.filter(isWorkoutDay) : []);
+    setStreakDate(typeof user.streakDate === 'string' ? user.streakDate : '');
+    setNicknameChanges(typeof user.nicknameChanges === 'number' ? user.nicknameChanges : 0);
     setActiveMissionId(null);
     setChatPeerId(null);
     if (Array.isArray(user.ownedItems)) {
@@ -174,10 +218,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } else {
       setOwnedItems(['jacket', user.characterId]);
     }
+    const nextEquipped = typeof user.equippedItem === 'string' && user.equippedItem ? user.equippedItem : 'jacket';
+    setEquippedItem(nextEquipped);
+    setWeeklyBonusWeek(typeof user.weeklyBonusWeek === 'string' ? user.weeklyBonusWeek : '');
+    weeklyAwardLock.current = typeof user.weeklyBonusWeek === 'string' ? user.weeklyBonusWeek : '';
+    setPendingWeeklyReward(null);
   };
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
+    api
+      .initApiBase()
+      .then(() => AsyncStorage.getItem(STORAGE_KEY))
       .then(async (raw) => {
         if (!raw) return;
         const saved = JSON.parse(raw);
@@ -226,14 +277,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         survey,
         missions,
         missionsDate,
+        workoutLogs,
+        streakDate,
         ownedItems,
+        equippedItem,
+        weeklyBonusWeek,
         onboarded,
       }),
     );
     if (token) {
       api
         .saveMe(token, {
-          nickname,
           coins,
           level,
           xp,
@@ -243,11 +297,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           survey,
           missions,
           missionsDate,
+          workoutLogs,
+          streakDate,
           ownedItems,
+          equippedItem,
+          weeklyBonusWeek,
         })
         .catch(() => undefined);
     }
-  }, [ready, token, screen, previousTab, characterId, nickname, coins, level, xp, streakDays, survey, missions, missionsDate, ownedItems, onboarded]);
+  }, [ready, token, screen, previousTab, characterId, nickname, coins, level, xp, streakDays, streakDate, survey, missions, missionsDate, workoutLogs, ownedItems, equippedItem, weeklyBonusWeek, onboarded]);
 
   useEffect(() => {
     if (!ready || !onboarded) return;
@@ -256,6 +314,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setMissions(pickDailyMissions(survey, `${userId || 'guest'}-${key}`));
     setMissionsDate(key);
   }, [ready, onboarded, missionsDate, survey, userId]);
+
+  useEffect(() => {
+    if (!ready || !onboarded) return;
+    const key = todayKey();
+    if (missionsDate !== key) return;
+    setWorkoutLogs((prev) => upsertWorkoutDay(prev, dayFromMissions(key, missions)));
+  }, [ready, onboarded, missions, missionsDate]);
+
+  useEffect(() => {
+    if (!ready || !onboarded) return;
+    const next = liveStreakDays(streakDays, streakDate);
+    if (next !== streakDays) setStreakDays(next);
+  }, [ready, onboarded, streakDate, streakDays]);
+
+  useEffect(() => {
+    if (!ready || !onboarded) return;
+    const key = currentWeekKey();
+    if (weeklyStepsCurrent < weeklyStepsGoal) return;
+    if (weeklyBonusWeek === key || weeklyAwardLock.current === key) return;
+    weeklyAwardLock.current = key;
+    setWeeklyBonusWeek(key);
+    setCoins((c) => c + WEEKLY_BONUS_COINS);
+    setXp((x) => applyXp(x, WEEKLY_BONUS_XP, () => setLevel((lv) => lv + 1)));
+    setPendingWeeklyReward({ coins: WEEKLY_BONUS_COINS, xp: WEEKLY_BONUS_XP });
+  }, [ready, onboarded, weeklyStepsCurrent, weeklyStepsGoal, weeklyBonusWeek]);
+
+  const bumpStreak = () => {
+    const key = todayKey();
+    setStreakDate((prev) => {
+      if (prev === key) return prev;
+      setStreakDays((days) => (prev === yesterdayKey() ? days + 1 : 1));
+      return key;
+    });
+  };
 
   const value = useMemo<AppState>(
     () => ({
@@ -270,14 +362,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       streakDays,
       survey,
       missions,
+      workoutLogs,
       activeMission: missions.find((mission) => mission.id === activeMissionId) ?? missions.find((mission) => mission.kind === 'reps' || mission.kind === 'cardio') ?? null,
       chatPeerId,
       weeklyStepsGoal,
       weeklyStepsCurrent,
+      todaySteps,
+      stepWeek,
+      weeklyBonusClaimed: weeklyBonusWeek === currentWeekKey(),
+      pendingWeeklyReward,
+      dismissWeeklyReward: () => setPendingWeeklyReward(null),
       ownedItems,
+      equippedItem,
       pendingUsername,
       userId,
       token,
+      nicknameChanges,
       go: (next) => {
         if (TAB_SCREENS.includes(screen)) setPreviousTab(screen);
         setScreen(next);
@@ -306,21 +406,56 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setLevel(1);
         setXp(0);
         setStreakDays(0);
+        setStreakDate('');
         setSurvey(defaultSurvey);
         setMissions(defaultMissions);
         setMissionsDate('');
+        setWorkoutLogs([]);
         setActiveMissionId(null);
         setChatPeerId(null);
         setOwnedItems(['jacket']);
+        setEquippedItem('jacket');
+        setWeeklyBonusWeek('');
+        weeklyAwardLock.current = '';
+        setPendingWeeklyReward(null);
         setCharacterId('otter');
+        setNicknameChanges(0);
         setScreen('login');
       },
       saveSurvey: (data) => {
         const key = todayKey();
-        setSurvey(data);
-        setMissions(pickDailyMissions(data, `${userId || 'guest'}-${key}`));
+        const next = {
+          ...data,
+          workoutDays: data.workoutDays?.length ? data.workoutDays : defaultWorkoutDays(data.frequency),
+        };
+        setSurvey(next);
+        setMissions(pickDailyMissions(next, `${userId || 'guest'}-${key}`));
         setMissionsDate(key);
         setScreen(onboarded ? 'profile' : 'character');
+      },
+      updateProfile: async ({ nickname: nextName, survey: nextSurvey }) => {
+        if (!token) throw new Error('로그인이 필요해요.');
+        const next = {
+          ...nextSurvey,
+          workoutDays: nextSurvey.workoutDays?.length ? nextSurvey.workoutDays : defaultWorkoutDays(nextSurvey.frequency),
+        };
+        const data = await api.updateProfile(token, { nickname: nextName.trim(), survey: next });
+        setNickname(data.user.nickname);
+        setCoins(data.user.coins);
+        setNicknameChanges(data.user.nicknameChanges ?? 0);
+        setSurvey(next);
+        const routineChanged =
+          survey.frequency !== next.frequency ||
+          survey.places.join() !== next.places.join() ||
+          survey.equipment.join() !== next.equipment.join() ||
+          survey.experience !== next.experience ||
+          survey.workoutDays.join() !== next.workoutDays.join();
+        if (routineChanged) {
+          const key = todayKey();
+          setMissions(pickDailyMissions(next, `${userId || 'guest'}-${key}`));
+          setMissionsDate(key);
+        }
+        setScreen('profile');
       },
       setCharacter: (id) => {
         setCharacterId(id);
@@ -352,7 +487,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         );
       },
       openChat: (peerId) => {
-        if (TAB_SCREENS.includes(screen)) setPreviousTab(screen);
+        if (screen !== 'chat') setPreviousTab(screen);
         setChatPeerId(peerId);
         setScreen('chat');
       },
@@ -360,13 +495,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         let cleared = false;
         setMissions((prev) =>
           prev.map((mission) => {
-            if (mission.id !== 'water' || mission.done) return mission;
-            const current = Math.min(mission.goal, +(mission.current + ml / 1000).toFixed(2));
+            if (mission.id !== 'water' && mission.kind !== 'water') return mission;
+            const next = +(mission.current + ml / 1000).toFixed(2);
+            if (mission.done) return { ...mission, current: Math.min(5, next) };
+            const current = Math.min(mission.goal, next);
             const done = current >= mission.goal;
             if (done) {
               cleared = true;
               setCoins((c) => c + (mission.coinReward || 200));
               setXp((x) => applyXp(x, mission.xpReward || 80, () => setLevel((lv) => lv + 1)));
+              bumpStreak();
             }
             return { ...mission, current, done };
           }),
@@ -379,22 +517,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (mission.id !== id || mission.done) return mission;
             setCoins((c) => c + coinReward);
             setXp((x) => applyXp(x, xpReward, () => setLevel((lv) => lv + 1)));
+            bumpStreak();
             return { ...mission, current: mission.goal, done: true };
           }),
         );
         setActiveMissionId(null);
-        setScreen('home');
+        setScreen(TAB_SCREENS.includes(previousTab) ? previousTab : 'home');
       },
       addCoins: (amount) => setCoins((c) => Math.max(0, c + amount)),
       buyItem: (id, price) => {
-        if (ownedItems.includes(id)) return true;
+        if (ownedItems.includes(id)) {
+          setEquippedItem(id);
+          return true;
+        }
         if (coins < price) return false;
         setCoins((c) => Math.max(0, c - price));
         setOwnedItems((prev) => (prev.includes(id) ? prev : [...prev, id]));
+        setEquippedItem(id);
         return true;
       },
+      equipItem: (id) => {
+        if (!ownedItems.includes(id)) return;
+        setEquippedItem(id);
+      },
+      openCoinShop: () => {
+        setCoinShopReturn(screen === 'coinShop' ? coinShopReturn : screen);
+        setScreen('coinShop');
+      },
+      closeCoinShop: () => setScreen(coinShopReturn === 'coinShop' ? 'profile' : coinShopReturn),
     }),
-    [ready, screen, previousTab, characterId, nickname, coins, level, xp, streakDays, survey, missions, activeMissionId, chatPeerId, weeklyStepsGoal, weeklyStepsCurrent, ownedItems, pendingUsername, token, userId, onboarded],
+    [ready, screen, previousTab, characterId, nickname, coins, level, xp, streakDays, survey, missions, workoutLogs, activeMissionId, chatPeerId, weeklyStepsGoal, weeklyStepsCurrent, todaySteps, stepWeek, weeklyBonusWeek, pendingWeeklyReward, ownedItems, equippedItem, pendingUsername, token, userId, onboarded, nicknameChanges, coinShopReturn],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

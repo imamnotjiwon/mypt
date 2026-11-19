@@ -1,21 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { Image, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '../components/AppText';
-import { STATUS_BAR_HEIGHT } from '../components/PhoneStatusBar';
+import { BackGlyph } from '../components/NavGlyph';
 import { asCharacterHead } from '../data/characters';
 import * as api from '../api';
+import { useAppInsets } from '../hooks/useAppInsets';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { useApp } from '../store/AppProvider';
-import { colors, fieldFont, font, layout, space } from '../theme';
+import { colors, fieldFont, font } from '../theme';
 
 function pad(n: number) {
   return n < 10 ? `0${n}` : String(n);
@@ -36,12 +29,14 @@ function clock(ts: number) {
 
 export function ChatScreen() {
   const { go, previousTab, token, chatPeerId } = useApp();
+  const { top, bottom } = useAppInsets();
+  const keyboard = useKeyboardInset();
   const [peer, setPeer] = useState<api.FriendPreview | null>(null);
   const [messages, setMessages] = useState<api.ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const scroll = useRef<ScrollView>(null);
-  const back = previousTab === 'community' ? 'community' : previousTab === 'friends' ? 'friends' : 'community';
+  const back = previousTab === 'chat' ? 'community' : previousTab;
 
   useEffect(() => {
     if (!token || !chatPeerId) {
@@ -84,17 +79,17 @@ export function ChatScreen() {
   if (!peer) {
     return (
       <View style={styles.root}>
-        <SafeAreaView style={{ flex: 1 }} edges={['top']} />
+        <SafeAreaView style={{ flex: 1 }} edges={[]} />
       </View>
     );
   }
 
   return (
     <View style={styles.root}>
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <View style={styles.top}>
-          <Pressable style={styles.iconBtn} onPress={() => go(back)}>
-            <Image source={require('../../assets/ui/icon-chat-back.png')} style={styles.backIcon} resizeMode="contain" />
+      <SafeAreaView style={{ flex: 1 }} edges={[]}>
+        <View style={[styles.top, { paddingTop: top }]}>
+          <Pressable style={styles.iconBtn} onPress={() => go(back)} hitSlop={12}>
+            <BackGlyph />
           </Pressable>
           <View style={styles.peer}>
             <View>
@@ -102,18 +97,14 @@ export function ChatScreen() {
               <View style={styles.online} />
             </View>
             <View style={styles.peerText}>
-              <AppText style={styles.name}>{peer.nickname}</AppText>
+              <AppText style={styles.name} numberOfLines={1}>{peer.nickname}</AppText>
               <AppText style={styles.status}>현재 활동 중</AppText>
             </View>
           </View>
-          <View style={styles.calls}>
-            <Image source={require('../../assets/ui/icon-video-call.png')} style={styles.callIcon} resizeMode="contain" />
-            <Image source={require('../../assets/ui/icon-phone-call.png')} style={styles.callIcon} resizeMode="contain" />
-          </View>
         </View>
 
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView ref={scroll} contentContainerStyle={styles.thread} showsVerticalScrollIndicator={false}>
+        <View style={{ flex: 1 }}>
+          <ScrollView ref={scroll} contentContainerStyle={styles.thread} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View style={styles.datePill}>
               <AppText style={styles.dateTxt}>{dateLabel(firstStamp)}</AppText>
             </View>
@@ -133,8 +124,7 @@ export function ChatScreen() {
             ))}
           </ScrollView>
 
-          <View style={styles.composer}>
-            <Image source={require('../../assets/ui/icon-chat-plus.png')} style={styles.toolIcon} resizeMode="contain" />
+          <View style={[styles.composer, { paddingBottom: 10 + (keyboard > 0 ? 8 : bottom) + keyboard }]}>
             <TextInput
               value={draft}
               onChangeText={setDraft}
@@ -145,13 +135,13 @@ export function ChatScreen() {
               style={styles.input}
               onSubmitEditing={send}
               returnKeyType="send"
+              blurOnSubmit={false}
             />
-            <Image source={require('../../assets/ui/icon-chat-gallery.png')} style={styles.galleryIcon} resizeMode="contain" />
-            <Pressable onPress={send} disabled={busy} hitSlop={6}>
+            <Pressable onPress={send} disabled={busy || !draft.trim()} hitSlop={12} style={({ pressed }) => [pressed && { opacity: 0.7 }, (!draft.trim() || busy) && { opacity: 0.4 }]}>
               <Image source={require('../../assets/ui/icon-chat-send.png')} style={styles.sendIcon} resizeMode="contain" />
             </Pressable>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </SafeAreaView>
     </View>
   );
@@ -166,10 +156,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingBottom: 8,
     backgroundColor: colors.white,
-    paddingTop: Platform.OS === 'web' ? STATUS_BAR_HEIGHT : 8,
   },
-  iconBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  backIcon: { width: 16, height: 16 },
+  iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },
   peer: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   peerText: { justifyContent: 'center' },
   head: { width: 40, height: 40, borderRadius: 20 },

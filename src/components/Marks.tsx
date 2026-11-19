@@ -1,7 +1,7 @@
 import { Image, ImageStyle, View } from 'react-native';
 import { colors } from '../theme';
 
-export function LogoMark({ width = 180, height = 44, style }: { width?: number; height?: number; style?: ImageStyle }) {
+export function LogoMark({ width = 248, height = 96, style }: { width?: number; height?: number; style?: ImageStyle }) {
   return (
     <Image
       source={require('../../assets/ui/logo.png')}
@@ -31,6 +31,16 @@ export function CoinMark({ size = 18 }: { size?: number }) {
   return (
     <Image
       source={require('../../assets/ui/coin-icon.png')}
+      style={{ width: size, height: size }}
+      resizeMode="contain"
+    />
+  );
+}
+
+export function SearchMark({ size = 20 }: { size?: number }) {
+  return (
+    <Image
+      source={require('../../assets/community/icon-search.png')}
       style={{ width: size, height: size }}
       resizeMode="contain"
     />

@@ -13,6 +13,9 @@ type Props = {
   currentXp: number;
   maxXp?: number;
   xpAlreadyApplied?: boolean;
+  kicker?: string;
+  title?: string;
+  sub?: string;
   onConfirm: () => void;
 };
 
@@ -24,6 +27,9 @@ export function MissionRewardDialog({
   currentXp,
   maxXp = 1000,
   xpAlreadyApplied = false,
+  kicker = '미션 성공 축하합니다!',
+  title = '수고했습니다!',
+  sub = '오늘도 한 걸음 성장했어요!',
   onConfirm,
 }: Props) {
   const fromXp = xpAlreadyApplied ? Math.max(0, currentXp - xpReward) : currentXp;
@@ -33,13 +39,13 @@ export function MissionRewardDialog({
     <View style={styles.root}>
       <FallingParticles />
       <AppText variant="caption" style={styles.kicker}>
-        미션 성공 축하합니다!
+        {kicker}
       </AppText>
       <AppText variant="title" style={styles.title}>
-        수고했습니다!
+        {title}
       </AppText>
       <AppText variant="body" style={styles.sub}>
-        오늘도 한 걸음 성장했어요!
+        {sub}
       </AppText>
       <Image source={character} style={styles.hero} resizeMode="contain" />
       <View style={styles.bottom}>

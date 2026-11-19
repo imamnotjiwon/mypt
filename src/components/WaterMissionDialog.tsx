@@ -32,7 +32,12 @@ export function WaterMissionDialog({ currentMl, targetMl, onAdd, onDismiss }: Pr
         </View>
         <View style={styles.row}>
           {[100, 250, 500].map((ml) => (
-            <Pressable key={ml} style={styles.quick} onPress={() => onAdd(ml)}>
+            <Pressable
+              key={ml}
+              style={({ pressed }) => [styles.quick, pressed && { opacity: 0.72 }]}
+              onPress={() => onAdd(ml)}
+              hitSlop={4}
+            >
               <AppText variant="body" style={styles.quickTxt}>
                 +{ml}ml
               </AppText>

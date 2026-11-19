@@ -15,6 +15,10 @@ export type Character = {
   name: string;
   nickname: string;
   color: string;
+  /** 줄 서 있을 때 상대 키 (고릴라=1) */
+  bodyScale: number;
+  /** 에셋 시각 중심 보정 (표시 너비 비율, +면 오른쪽) */
+  nudgeX?: number;
   head: ImageSourcePropType;
   body: ImageSourcePropType;
   ready: ImageSourcePropType;
@@ -26,6 +30,7 @@ export const CHARACTERS: Character[] = [
     name: '수달',
     nickname: '달이',
     color: '#B3E5FC',
+    bodyScale: 0.88,
     head: require('../../assets/characters/otter-head.png'),
     body: require('../../assets/characters/otter-body.png'),
     ready: require('../../assets/characters/otter-wave.png'),
@@ -35,6 +40,8 @@ export const CHARACTERS: Character[] = [
     name: '토끼',
     nickname: '토리',
     color: '#FFE0B2',
+    bodyScale: 0.9,
+    nudgeX: 0.06,
     head: require('../../assets/characters/rabbit-head.png'),
     body: require('../../assets/characters/rabbit-body.png'),
     ready: require('../../assets/characters/ready-rabbit.png'),
@@ -44,6 +51,7 @@ export const CHARACTERS: Character[] = [
     name: '고양이',
     nickname: '냥이',
     color: '#F8BBD0',
+    bodyScale: 0.84,
     head: require('../../assets/characters/cat-head.png'),
     body: require('../../assets/characters/cat-body.png'),
     ready: require('../../assets/characters/ready-cat.png'),
@@ -53,6 +61,7 @@ export const CHARACTERS: Character[] = [
     name: '고릴라',
     nickname: '고릴',
     color: '#CFD8DC',
+    bodyScale: 1,
     head: require('../../assets/characters/gorilla-head.png'),
     body: require('../../assets/characters/gorilla-body.png'),
     ready: require('../../assets/characters/ready-gorilla.png'),
@@ -62,6 +71,7 @@ export const CHARACTERS: Character[] = [
     name: '강아지',
     nickname: '멍이',
     color: '#FFCCBC',
+    bodyScale: 0.88,
     head: require('../../assets/characters/dog-head.png'),
     body: require('../../assets/characters/dog-body.png'),
     ready: require('../../assets/characters/ready-dog.png'),
@@ -71,6 +81,7 @@ export const CHARACTERS: Character[] = [
     name: '햄스터',
     nickname: '햄템이',
     color: '#C8E6C9',
+    bodyScale: 0.58,
     head: require('../../assets/characters/hamster-head.png'),
     body: require('../../assets/characters/hamster-body.png'),
     ready: require('../../assets/characters/ready-hamster.png'),
@@ -80,6 +91,7 @@ export const CHARACTERS: Character[] = [
     name: '나무늘보',
     nickname: '늘보씨',
     color: '#D1C4E9',
+    bodyScale: 0.97,
     head: require('../../assets/characters/sloth-head.png'),
     body: require('../../assets/characters/sloth-body.png'),
     ready: require('../../assets/characters/ready-sloth.png'),
@@ -89,6 +101,7 @@ export const CHARACTERS: Character[] = [
     name: '곰',
     nickname: '곰이',
     color: '#FFE082',
+    bodyScale: 0.98,
     head: require('../../assets/characters/bear-head.png'),
     body: require('../../assets/characters/bear-body.png'),
     ready: require('../../assets/characters/ready-bear.png'),

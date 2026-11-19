@@ -42,3 +42,6 @@ server/data/*.json
 # generated native folders
 /ios
 /android
+
+# public tunnel publish folder
+.api-publish/

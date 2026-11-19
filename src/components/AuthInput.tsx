@@ -1,4 +1,4 @@
-import { Platform, StyleSheet, TextInput, TextInputProps, View } from 'react-native';
+import { Platform, StyleSheet, TextInput, TextInputProps, TextStyle, View } from 'react-native';
 import { AppText } from './AppText';
 import { colors, fieldFont, font } from '../theme';
 
@@ -49,6 +49,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 0,
     ...(Platform.OS === 'android' ? { includeFontPadding: false, textAlignVertical: 'center' } : null),
-    ...(Platform.OS === 'web' ? { outlineStyle: 'none', outlineWidth: 0 } : null),
+    ...(Platform.OS === 'web'
+      ? ({ outlineStyle: 'none', outlineWidth: 0 } as unknown as TextStyle)
+      : null),
   },
 });

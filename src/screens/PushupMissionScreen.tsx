@@ -41,23 +41,23 @@ export function PushupMissionScreen() {
   useEffect(() => {
     if (paused || done || !mission || mission.done) return;
     const id = setInterval(() => {
-      setElapsed((ms) => {
-        if (ms + 100 >= REP_MS) {
-          setCurrent((n) => Math.min(target, n + 1));
-          return 0;
-        }
-        return ms + 100;
-      });
+      setElapsed((ms) => ms + 100);
     }, 100);
     return () => clearInterval(id);
-  }, [paused, done, mission, target]);
+  }, [paused, done, mission?.id, mission?.done]);
+
+  useEffect(() => {
+    if (elapsed < REP_MS) return;
+    setElapsed(0);
+    setCurrent((n) => Math.min(target, n + 1));
+  }, [elapsed, target]);
 
   const leave = () => {
     if (mission && !mission.done) saveMissionProgress(mission.id, currentRef.current);
     go(previousTab === 'quest' ? 'quest' : 'home');
   };
 
-  const remaining = Math.max(0, (target - current) * (REP_MS / 1000) - elapsed / 1000);
+  const remaining = Math.max(0, (target * REP_MS - (current * REP_MS + elapsed)) / 1000);
   if (!mission) return null;
 
   return (

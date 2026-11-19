@@ -6,8 +6,13 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "androidStatusBar": {
+      "barStyle": "dark-content",
+      "backgroundColor": "#00000000",
+      "translucent": true
+    },
     "extra": {
-      "apiUrl": "http://192.168.24.97:4000",
+      "apiUrl": "https://lean-soma-database-sciences.trycloudflare.com",
       "eas": {
         "projectId": "7ca53525-c1f6-4af4-890f-35024f15f16e"
       }
@@ -21,11 +26,11 @@
         }
       }
     },
-      "android": {
-        "package": "com.mypt.app",
-        "softwareKeyboardLayoutMode": "resize",
+    "android": {
+      "package": "com.mypt.app",
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "backgroundColor": "#E5F1FD",
+        "backgroundColor": "#4893BD",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -55,6 +60,7 @@
         }
       ],
       "expo-splash-screen",
+      "expo-status-bar",
       [
         "expo-build-properties",
         {

@@ -1,30 +1,25 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurTargetView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '../components/AppText';
 import { BottomNav } from '../components/BottomNav';
 import { ExerciseCalendar } from '../components/ExerciseCalendar';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { pickDailyInsight } from '../data/insights';
 import { getCharacter } from '../data/characters';
+import { heroBodySource } from '../data/outfit';
+import { todayKey } from '../data/missions';
+import { daysInWeek, dayForDate, formatClock, formatHours, formatKm, sumDays, weekDates } from '../data/workoutLog';
+import { FloorShadow } from '../components/FloorShadow';
+import { useAppInsets } from '../hooks/useAppInsets';
+import { useDesignScale } from '../hooks/useDesignScale';
 import { useApp } from '../store/AppProvider';
 import { colors, font, layout, radius, shadow, space } from '../theme';
 
-const EXERCISES = [
-  { icon: require('../../assets/ui/exercise-run.png'), title: '달리기', subtitle: 'Running', value: '0km' },
-  { icon: require('../../assets/ui/exercise-weights.png'), title: '웨이트 트레이닝', subtitle: 'Weights', value: '0h' },
-  { icon: require('../../assets/ui/exercise-cycle.png'), title: '자전거 타기', subtitle: 'Cycling', value: '0km' },
-];
-const WEEK = [
-  { label: '월', value: 0.38 },
-  { label: '화', value: 0.72 },
-  { label: '수', value: 1 },
-  { label: '목', value: 0.48 },
-  { label: '금', value: 0.86 },
-  { label: '토', value: 0.18 },
-  { label: '일', value: 0.36 },
-];
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+const WEEK_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
 
 function shiftDate(base: Date, days: number) {
   const next = new Date(base);
@@ -44,30 +39,56 @@ function formatLong(date: Date) {
 }
 
 export function ExerciseScreen() {
-  const { go, nickname, coins, characterId } = useApp();
-  const character = getCharacter(characterId);
+  const { go, nickname, coins, characterId, openCoinShop, userId, workoutLogs, missions, equippedItem } = useApp();
+  const { navInset } = useAppInsets();
+  const s = useDesignScale();
+  const blurTarget = useRef<View>(null);
   const today = useMemo(() => new Date(), []);
   const [selected, setSelected] = useState(() => new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const selectedIndex = useMemo(() => (selected.getDay() + 6) % 7, [selected]);
   const monthLabel = `${selected.getMonth() + 1}월`;
   const weekLabel = `${monthLabel} ${Math.ceil(selected.getDate() / 7)}주차 요약`;
+  const insight = useMemo(
+    () => pickDailyInsight({ nickname, userId, logs: workoutLogs, missions }),
+    [nickname, userId, workoutLogs, missions],
+  );
+  const selectedKey = todayKey(selected);
+  const isToday = selectedKey === todayKey(today);
+  const day = dayForDate(workoutLogs, selectedKey, isToday ? missions : undefined);
+  const weekDays = daysInWeek(workoutLogs, selected, missions);
+  const weekSum = sumDays(weekDays);
+  const weekMax = Math.max(...weekDays.map((row) => row.minutes), 1);
+  const exercises = [
+    { icon: require('../../assets/ui/exercise-run.png'), title: '달리기', subtitle: 'Running', value: formatKm(day.runKm) },
+    { icon: require('../../assets/ui/exercise-weights.png'), title: '웨이트 트레이닝', subtitle: 'Weights', value: formatHours(day.weightsMin) },
+    { icon: require('../../assets/ui/exercise-cycle.png'), title: '자전거 타기', subtitle: 'Cycling', value: formatKm(day.cycleKm) },
+  ];
+  const canGoNext = todayKey(shiftDate(selected, 1)) <= todayKey(today);
 
   return (
     <View style={styles.root}>
+      <BlurTargetView ref={blurTarget} style={styles.safe}>
       <LinearGradient colors={['#CDE4FD', colors.white]} style={StyleSheet.absoluteFill} />
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <ScreenHeader nickname={nickname} coins={coins} characterId={characterId} onPressProfile={() => go('profile')} />
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <SafeAreaView style={styles.safe} edges={[]}>
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: navInset }]} showsVerticalScrollIndicator={false}>
+          <View style={styles.headerBleed}>
+            <ScreenHeader nickname={nickname} coins={coins} characterId={characterId} onPressProfile={() => go('profile')} onPressCoins={openCoinShop} compact />
+          </View>
           <View style={styles.dateNav}>
-            <Pressable onPress={() => setSelected((d) => shiftDate(d, -1))} hitSlop={8}>
+            <Pressable onPress={() => setSelected((d) => shiftDate(d, -1))} hitSlop={16} style={styles.chevronHit}>
               <AppText style={styles.chevron}>‹</AppText>
             </Pressable>
-            <Pressable onPress={() => setCalendarOpen(true)} hitSlop={8}>
+            <Pressable onPress={() => setCalendarOpen(true)} hitSlop={12} style={styles.dateHit}>
               <AppText style={styles.dateTxt}>{formatDot(selected)}</AppText>
             </Pressable>
-            <Pressable onPress={() => setSelected((d) => shiftDate(d, 1))} hitSlop={8}>
-              <AppText style={styles.chevron}>›</AppText>
+            <Pressable
+              onPress={() => canGoNext && setSelected((d) => shiftDate(d, 1))}
+              hitSlop={16}
+              style={[styles.chevronHit, !canGoNext && styles.chevronOff]}
+              disabled={!canGoNext}
+            >
+              <AppText style={[styles.chevron, !canGoNext && styles.chevronMuted]}>›</AppText>
             </Pressable>
           </View>
 
@@ -78,7 +99,12 @@ export function ExerciseScreen() {
                 {formatLong(selected)}
               </AppText>
             </View>
-            {EXERCISES.map((item) => (
+            {day.minutes <= 0 ? (
+              <AppText variant="caption" style={[styles.muted, { marginBottom: space[8] }]}>
+                {isToday ? '오늘의 미션을 하면 여기에 기록이 쌓여요' : '이 날은 운동 기록이 없어요'}
+              </AppText>
+            ) : null}
+            {exercises.map((item) => (
               <View key={item.title} style={styles.exRow}>
                 <Image source={item.icon} style={styles.exGlyph} resizeMode="contain" />
                 <View style={{ flex: 1 }}>
@@ -103,9 +129,32 @@ export function ExerciseScreen() {
             <AppText variant="caption" style={styles.muted}>
               {monthLabel}의 나, 조금씩 변화 중
             </AppText>
-            <View style={styles.todayStage}>
-              <Image source={require('../../assets/ui/character-base.png')} style={styles.pedestal} resizeMode="contain" />
-              <Image source={character.body} style={styles.today} resizeMode="contain" />
+            <View style={[styles.todayStage, { height: Math.round(220 * s) }]}>
+              {(() => {
+                const character = getCharacter(characterId);
+                const w = Math.round(118 * character.bodyScale * s);
+                const h = Math.round(138 * character.bodyScale * s);
+                const nudge = Math.round(w * (character.nudgeX ?? 0));
+                return (
+                  <>
+                    <Image
+                      source={heroBodySource(characterId, equippedItem)}
+                      style={{
+                        width: w,
+                        height: h,
+                        zIndex: 2,
+                        transform: [{ translateX: nudge }],
+                      }}
+                      resizeMode="contain"
+                    />
+                    <FloorShadow
+                      width={Math.round(w * 0.72)}
+                      height={Math.round(18 * s)}
+                      style={[styles.pedestal, { transform: [{ translateX: nudge }] }]}
+                    />
+                  </>
+                );
+              })()}
             </View>
           </View>
 
@@ -117,23 +166,32 @@ export function ExerciseScreen() {
               {weekLabel}
             </AppText>
             <View style={styles.chart}>
-              {WEEK.map((day, i) => {
+              {weekDays.map((row, i) => {
                 const on = i === selectedIndex;
                 return (
-                  <View key={day.label} style={styles.barCol}>
+                  <Pressable
+                    key={WEEK_LABELS[i]}
+                    style={styles.barCol}
+                    onPress={() => {
+                      const next = weekDates(selected)[i];
+                      if (todayKey(next) > todayKey(today)) return;
+                      setSelected(next);
+                    }}
+                    hitSlop={6}
+                  >
                     <View
                       style={[
                         styles.bar,
                         {
-                          height: 18 + day.value * 108,
+                          height: 18 + (row.minutes / weekMax) * 108,
                           backgroundColor: on ? colors.navy : '#E8EEF4',
                         },
                       ]}
                     />
                     <AppText variant="caption" style={[styles.day, on && styles.dayOn]}>
-                      {day.label}
+                      {WEEK_LABELS[i]}
                     </AppText>
-                  </View>
+                  </Pressable>
                 );
               })}
             </View>
@@ -144,7 +202,7 @@ export function ExerciseScreen() {
                   TOTAL TIME
                 </AppText>
                 <AppText variant="body" style={styles.statText}>
-                  주간 총 소요 시간: 3시간 15분
+                  주간 총 소요 시간: {formatClock(weekSum.minutes)}
                 </AppText>
               </View>
             </View>
@@ -155,7 +213,7 @@ export function ExerciseScreen() {
                   CALORIES
                 </AppText>
                 <AppText variant="body" style={styles.statText}>
-                  주간 칼로리 소모: 1,500 kcal
+                  주간 칼로리 소모: {Math.round(weekSum.kcal).toLocaleString()} kcal
                 </AppText>
               </View>
             </View>
@@ -166,29 +224,31 @@ export function ExerciseScreen() {
               오늘의 인사이트
             </AppText>
             <AppText variant="body" style={styles.insightBody}>
-              지난주보다 운동량이 15% 증가했어요!
+              {insight.headline}
             </AppText>
             <AppText variant="body" style={styles.insightBody}>
-              이대로라면 곧 레벨업이에요
+              {insight.detail}
             </AppText>
             <AppText variant="body" style={styles.insightBody}>
-              {nickname}도 함께 성장하면서 점점 더 건강해지고 있어요 ✨
+              {insight.footer}
             </AppText>
-            <View style={styles.insightBtn}>
+            <Pressable style={styles.insightBtn} onPress={() => go('quest')} hitSlop={8}>
               <AppText variant="caption" style={styles.insightBtnTxt}>
-                자세히 보기
+                오늘의 미션 하러 가기
               </AppText>
-            </View>
+            </Pressable>
           </LinearGradient>
         </ScrollView>
       </SafeAreaView>
       <BottomNav active="exercise" onChange={go} />
+      </BlurTargetView>
       {calendarOpen ? (
         <ExerciseCalendar
           selected={selected}
           today={today}
+          blurTarget={blurTarget}
           onSelect={(date) => {
-            setSelected(date);
+            setSelected(todayKey(date) > todayKey(today) ? today : date);
             setCalendarOpen(false);
           }}
           onClose={() => setCalendarOpen(false)}
@@ -201,7 +261,8 @@ export function ExerciseScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.white },
   safe: { flex: 1 },
-  scroll: { paddingHorizontal: layout.screen, paddingTop: space[8], paddingBottom: layout.navInset, gap: space[16] },
+  headerBleed: { marginHorizontal: -layout.screen },
+  scroll: { paddingHorizontal: layout.screen, paddingTop: 0, gap: space[16] },
   dateNav: {
     alignSelf: 'center',
     flexDirection: 'row',
@@ -212,11 +273,15 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 18,
     minWidth: 248,
-    marginTop: space[24],
+    marginTop: 0,
     marginBottom: space[4],
     ...shadow.soft,
   },
+  chevronHit: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  chevronOff: { opacity: 0.35 },
   chevron: { fontFamily: font.bold, fontSize: 22, lineHeight: 28, color: colors.navy, width: 28, height: 28, textAlign: 'center' },
+  chevronMuted: { color: colors.gray },
+  dateHit: { minHeight: 40, justifyContent: 'center' },
   dateTxt: { fontFamily: font.bold, fontSize: 16, lineHeight: 28, color: colors.navy, textAlign: 'center', minWidth: 120 },
   card: { backgroundColor: colors.white, borderRadius: radius.card, padding: space[16] },
   row: { flexDirection: 'row', alignItems: 'center', gap: space[8], marginBottom: space[12] },
@@ -241,11 +306,9 @@ const styles = StyleSheet.create({
   },
   pedestal: {
     position: 'absolute',
-    bottom: 10,
-    width: 210,
-    height: 58,
+    bottom: 0,
+    zIndex: 1,
   },
-  today: { width: 168, height: 196, zIndex: 1 },
   weekTitle: { fontFamily: font.extraBold, color: colors.black },
   weekSub: { color: '#7A93B0', marginTop: 2 },
   chart: { flexDirection: 'row', alignItems: 'flex-end', height: 148, marginTop: space[16], gap: 0 },

@@ -1,7 +1,8 @@
-import { Image, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from './AppText';
-import { CoinMark } from './Marks';
-import { STATUS_BAR_HEIGHT } from './PhoneStatusBar';
+import { CloseGlyph } from './NavGlyph';
+import { CoinMark, SearchMark } from './Marks';
+import { useAppInsets } from '../hooks/useAppInsets';
 import { colors, layout, shadow, space } from '../theme';
 import { CharacterId, getCharacter } from '../data/characters';
 
@@ -10,28 +11,47 @@ type Props = {
   coins: number;
   characterId: CharacterId;
   onPressProfile: () => void;
+  onPressCoins?: () => void;
+  onPressSearch?: () => void;
+  searchActive?: boolean;
   showCoins?: boolean;
+  compact?: boolean;
 };
 
-export function ScreenHeader({ nickname, coins, characterId, onPressProfile, showCoins = true }: Props) {
+export function ScreenHeader({
+  nickname,
+  coins,
+  characterId,
+  onPressProfile,
+  onPressCoins,
+  onPressSearch,
+  searchActive = false,
+  showCoins = true,
+  compact = false,
+}: Props) {
   const character = getCharacter(characterId);
+  const { top } = useAppInsets();
   return (
-    <View style={styles.row}>
-      <Pressable style={styles.profile} onPress={onPressProfile} hitSlop={8}>
+    <View style={[styles.row, { paddingTop: top, paddingBottom: compact ? space[8] : space[16] }]}>
+      <Pressable style={styles.profile} onPress={onPressProfile} hitSlop={12}>
         <View style={styles.avatar}>
           <Image source={character.head} style={styles.avatarImg} resizeMode="contain" />
         </View>
-        <AppText variant="cardTitle" style={styles.name}>
+        <AppText variant="cardTitle" style={styles.name} numberOfLines={1}>
           {nickname}
         </AppText>
       </Pressable>
-      {showCoins ? (
-        <View style={styles.coin}>
+      {onPressSearch ? (
+        <Pressable style={styles.search} onPress={onPressSearch} hitSlop={12}>
+          {searchActive ? <CloseGlyph /> : <SearchMark size={20} />}
+        </Pressable>
+      ) : showCoins ? (
+        <Pressable style={styles.coin} onPress={onPressCoins} hitSlop={12} disabled={!onPressCoins}>
           <CoinMark size={16} />
           <AppText variant="caption" style={styles.coinText}>
             {coins.toLocaleString()}
           </AppText>
-        </View>
+        </Pressable>
       ) : (
         <View />
       )}
@@ -45,14 +65,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: layout.header,
-    paddingTop: Platform.OS === 'web' ? STATUS_BAR_HEIGHT : space[8],
     paddingBottom: space[16],
     minHeight: 48,
+    zIndex: 2,
   },
   profile: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[12],
+    paddingRight: space[12],
+    minHeight: 44,
   },
   avatar: {
     width: layout.avatar,
@@ -68,6 +91,7 @@ const styles = StyleSheet.create({
     height: 40,
   },
   name: {
+    flexShrink: 1,
     color: colors.text,
   },
   coin: {
@@ -75,13 +99,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.white,
     borderRadius: 999,
+    minHeight: 40,
     paddingHorizontal: space[12],
-    paddingVertical: space[6],
+    paddingVertical: space[8],
     gap: 8,
     ...shadow.soft,
   },
   coinText: {
     fontFamily: 'Pretendard-Bold',
     color: '#263129',
+  },
+  search: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadow.soft,
   },
 });

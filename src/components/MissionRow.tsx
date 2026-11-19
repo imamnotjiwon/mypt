@@ -33,7 +33,12 @@ export function MissionRow({ mission, onPress, showBadge = true }: Props) {
   const raster = ICONS[mission.icon ?? ''] ?? ICONS[mission.id] ?? ICONS.cardio;
   const ratio = mission.done ? 1 : mission.current / mission.goal;
   return (
-    <Pressable style={styles.mission} onPress={onPress} disabled={!onPress}>
+    <Pressable
+      style={({ pressed }) => [styles.mission, pressed && styles.pressed]}
+      onPress={onPress}
+      disabled={!onPress}
+      hitSlop={6}
+    >
       <View style={styles.missionIcon}>
         <Image source={raster} style={styles.missionGlyph} resizeMode="contain" />
         {showBadge ? (
@@ -65,7 +70,15 @@ export function MissionRow({ mission, onPress, showBadge = true }: Props) {
 }
 
 const styles = StyleSheet.create({
-  mission: { flexDirection: 'row', alignItems: 'center', gap: space[12], paddingTop: space[16], overflow: 'visible' },
+  mission: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[12],
+    paddingVertical: space[12],
+    minHeight: 64,
+    overflow: 'visible',
+  },
+  pressed: { opacity: 0.72 },
   missionIcon: {
     width: 48,
     height: 48,

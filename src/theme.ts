@@ -54,7 +54,7 @@ export const layout = {
   loginActions: 58,
   cardGap: 13,
   sectionGap: 16,
-  navHeight: 92,
+  navHeight: 68,
   navInset: 112,
   buttonHeight: 58,
   loginButtonHeight: 68,
@@ -71,10 +71,10 @@ export const shadow = {
   },
   nav: {
     shadowColor: '#96A9BD',
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
     shadowOffset: { width: 0, height: -2 },
-    elevation: 16,
+    elevation: 6,
   },
   soft: {
     shadowColor: '#000',

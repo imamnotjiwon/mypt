@@ -10,10 +10,11 @@ type Props = {
   itemLabel?: string;
   onClose: () => void;
   onMission: () => void;
+  onCharge?: () => void;
   onBuy: () => void;
 };
 
-export function ShopPurchaseDialog({ character, canAfford, price, itemLabel = '의상', onClose, onMission, onBuy }: Props) {
+export function ShopPurchaseDialog({ character, canAfford, price, itemLabel = '의상', onClose, onMission, onCharge, onBuy }: Props) {
   return (
     <View style={styles.dim}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
@@ -26,12 +27,12 @@ export function ShopPurchaseDialog({ character, canAfford, price, itemLabel = '�
             <AppText style={styles.title}>구매를 하실건가요?</AppText>
             <AppText style={styles.sub}>코인 {price.toLocaleString()}을 사용해 {itemLabel}를 구매해요.</AppText>
             <View style={styles.actions}>
-              <Pressable style={styles.primaryWrap} onPress={onBuy}>
+              <Pressable style={({ pressed }) => [styles.primaryWrap, pressed && { opacity: 0.86 }]} onPress={onBuy}>
                 <LinearGradient colors={[...gradient.button]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={styles.primary}>
                   <AppText style={styles.primaryTxt}>구매하기</AppText>
                 </LinearGradient>
               </Pressable>
-              <Pressable style={styles.secondary} onPress={onClose}>
+              <Pressable style={({ pressed }) => [styles.secondary, pressed && { opacity: 0.86 }]} onPress={onClose}>
                 <AppText style={styles.secondaryTxt}>취소</AppText>
               </Pressable>
             </View>
@@ -39,15 +40,15 @@ export function ShopPurchaseDialog({ character, canAfford, price, itemLabel = '�
         ) : (
           <>
             <AppText style={styles.title}>코인이 부족합니다!</AppText>
-            <AppText style={styles.sub}>원하는 {itemLabel}를 구매하려면 코인을 더 모아야해요.</AppText>
+            <AppText style={styles.sub}>원하는 {itemLabel}를 구매하려면 코인을 충전해 주세요.</AppText>
             <View style={styles.actions}>
-              <Pressable style={styles.primaryWrap} onPress={onMission}>
+              <Pressable style={({ pressed }) => [styles.primaryWrap, pressed && { opacity: 0.86 }]} onPress={onCharge ?? onMission}>
                 <LinearGradient colors={[...gradient.button]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={styles.primary}>
-                  <AppText style={styles.primaryTxt}>미션 깨기</AppText>
+                  <AppText style={styles.primaryTxt}>{onCharge ? '코인 충전' : '미션 깨기'}</AppText>
                 </LinearGradient>
               </Pressable>
-              <Pressable style={styles.secondary} onPress={onClose}>
-                <AppText style={styles.secondaryTxt}>다음에</AppText>
+              <Pressable style={({ pressed }) => [styles.secondary, pressed && { opacity: 0.86 }]} onPress={onCharge ? onMission : onClose}>
+                <AppText style={styles.secondaryTxt}>{onCharge ? '미션 깨기' : '다음에'}</AppText>
               </Pressable>
             </View>
           </>

@@ -40,7 +40,7 @@ export function PhoneShell({ children }: Props) {
       const style = document.createElement('style');
       style.id = styleId;
       style.textContent =
-        'html,body,#root{height:100%;margin:0;background:#C9D6E5} body{overflow:hidden}';
+        'html,body,#root{height:100%;margin:0;background:#C9D6E5} body{overflow:hidden} img{display:block;vertical-align:top}';
       document.head.appendChild(style);
     }
 
@@ -66,8 +66,7 @@ export function PhoneShell({ children }: Props) {
             styles.phone,
             {
               transform: [{ scale }],
-              // @ts-expect-error react-native-web
-              transformOrigin: 'top left',
+              transformOrigin: 'top left' as const,
             },
           ]}
         >

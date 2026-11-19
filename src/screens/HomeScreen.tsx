@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Image, ImageSourcePropType, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, ImageSourcePropType, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '../components/AppText';
 import { BottomNav } from '../components/BottomNav';
+import { CharacterHero } from '../components/CharacterHero';
 import { MissionRewardDialog } from '../components/MissionRewardDialog';
 import { ProgressBar } from '../components/ProgressBar';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { STATUS_BAR_HEIGHT } from '../components/PhoneStatusBar';
 import { WaterMissionDialog } from '../components/WaterMissionDialog';
 import { MissionRow } from '../components/MissionRow';
 import { getCharacter } from '../data/characters';
+import { heroBodySource } from '../data/outfit';
+import { WEEKLY_MISSION_HINT } from '../data/weekly';
 import * as api from '../api';
+import { useAppInsets } from '../hooks/useAppInsets';
 import { Mission, useApp } from '../store/AppProvider';
 import { colors, font, layout, radius, space } from '../theme';
 
@@ -19,8 +22,6 @@ const MEDALS: ImageSourcePropType[] = [
   require('../../assets/ui/medal-silver.png'),
   require('../../assets/ui/medal-bronze.png'),
 ];
-
-const HEADER_H = (Platform.OS === 'web' ? STATUS_BAR_HEIGHT : space[8]) + 40 + space[16];
 
 function todayDeadlineLabel(date = new Date()) {
   return `${date.getMonth() + 1}월 ${date.getDate()}일 23:59까지`;
@@ -33,7 +34,8 @@ export function weekDdayLabel(date = new Date()) {
 }
 
 export function HomeScreen() {
-  const { go, startMission, token, characterId, nickname, coins, level, xp, streakDays, missions, weeklyStepsGoal, weeklyStepsCurrent, addWater } = useApp();
+  const { go, startMission, token, characterId, nickname, coins, level, xp, streakDays, missions, weeklyStepsGoal, weeklyStepsCurrent, weeklyBonusClaimed, pendingWeeklyReward, dismissWeeklyReward, addWater, openCoinShop, equippedItem } = useApp();
+  const { navInset } = useAppInsets();
   const character = getCharacter(characterId);
   const [waterOpen, setWaterOpen] = useState(false);
   const [waterReward, setWaterReward] = useState(false);
@@ -54,15 +56,15 @@ export function HomeScreen() {
   }, [token]);
 
   const ranking = [
-    { key: 'me', name: nickname, weeks: Math.floor(streakDays / 7), id: characterId, me: true },
+    { key: 'me', name: nickname, days: streakDays, id: characterId, me: true },
     ...friends.map((friend) => ({
       key: friend.id,
       name: friend.nickname,
-      weeks: Math.floor((friend.streakDays ?? 0) / 7),
+      days: friend.streakDays ?? 0,
       id: getCharacter(friend.characterId).id,
       me: false,
     })),
-  ].sort((a, b) => b.weeks - a.weeks);
+  ].sort((a, b) => b.days - a.days || (a.me ? -1 : 1));
   const myRank = ranking.findIndex((row) => row.me) + 1;
 
   const openMission = (mission: Mission) => {
@@ -73,13 +75,20 @@ export function HomeScreen() {
   return (
     <View style={styles.root}>
       <SafeAreaView style={styles.safe} edges={[]}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <View style={styles.heroSection}>
-            <Image source={require('../../assets/ui/home-hero.png')} style={styles.heroBg} resizeMode="cover" />
-            <View style={styles.heroBox}>
-              <Image source={character.ready} style={styles.hero} resizeMode="contain" />
-            </View>
-          </View>
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: navInset }]} showsVerticalScrollIndicator={false}>
+          <CharacterHero
+            characterSource={heroBodySource(characterId, equippedItem)}
+            characterId={characterId}
+            header={
+              <ScreenHeader
+                nickname={nickname}
+                coins={coins}
+                characterId={characterId}
+                onPressProfile={() => go('profile')}
+                onPressCoins={openCoinShop}
+              />
+            }
+          />
 
           <View style={styles.body}>
             <View style={styles.levelCard}>
@@ -108,7 +117,7 @@ export function HomeScreen() {
               <AppText variant="caption" style={[styles.muted, { marginBottom: space[8] }]}>
                 {todayDeadline}
               </AppText>
-              <ProgressBar value={doneCount / missions.length} />
+              <ProgressBar value={missions.length ? doneCount / missions.length : 0} />
               {missions.map((mission) => (
                 <MissionRow key={mission.id} mission={mission} onPress={() => openMission(mission)} />
               ))}
@@ -126,33 +135,38 @@ export function HomeScreen() {
                 </View>
               </View>
               <AppText variant="caption" style={styles.muted}>
-                이번주 5만 걸음 걸어야 합니다
+                {WEEKLY_MISSION_HINT}
               </AppText>
-              <View style={styles.weekRow}>
+              <Pressable style={styles.weekRow} onPress={() => go('quest')} hitSlop={6}>
                 <View style={styles.walkIcon}>
                   <Image source={require('../../assets/ui/icon-walk.png')} style={styles.walkGlyph} resizeMode="contain" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={styles.rowBetween}>
                     <AppText variant="body" style={styles.bold}>
-                      {weeklyStepsCurrent.toLocaleString()} / {weeklyStepsGoal.toLocaleString()}
-                    </AppText>
-                    <AppText variant="caption" style={styles.muted}>
-                      {Math.round((weeklyStepsCurrent * 100) / weeklyStepsGoal)}%
+                    {weeklyStepsCurrent.toLocaleString()} / {weeklyStepsGoal.toLocaleString()}
+                  </AppText>
+                  <AppText variant="caption" style={styles.muted}>
+                    {weeklyStepsGoal ? Math.round((weeklyStepsCurrent * 100) / weeklyStepsGoal) : 0}%
                     </AppText>
                   </View>
                   <View style={{ marginTop: 12 }}>
-                    <ProgressBar value={weeklyStepsCurrent / weeklyStepsGoal} height={8} />
+                    <ProgressBar value={weeklyStepsGoal ? weeklyStepsCurrent / weeklyStepsGoal : 0} height={8} />
                   </View>
                 </View>
-              </View>
+              </Pressable>
+              {weeklyBonusClaimed ? (
+                <AppText variant="caption" style={[styles.clear, { marginTop: space[8] }]}>
+                  올클리어 보상 획득 완료
+                </AppText>
+              ) : null}
               <View style={styles.friendBox}>
                 <AppText variant="body" style={styles.friendTitle}>
                   친구들 중 {myRank}위! 🔥
                 </AppText>
                 <View style={styles.friendRow}>
                   <View style={styles.avatars}>
-                    {ranking.map((friend, i) => (
+                    {ranking.slice(0, 3).map((friend, i) => (
                       <Image
                         key={friend.key}
                         source={getCharacter(friend.id).head}
@@ -160,7 +174,7 @@ export function HomeScreen() {
                       />
                     ))}
                   </View>
-                  <Pressable style={styles.friendLink} onPress={() => go('friends')}>
+                  <Pressable style={styles.friendLink} onPress={() => go('friends')} hitSlop={12}>
                     <AppText variant="caption" style={styles.link}>
                       친구들 현황 보기
                     </AppText>
@@ -174,14 +188,14 @@ export function HomeScreen() {
               <View style={styles.cardHead}>
                 <View style={styles.rankTitleRow}>
                   <AppText variant="body" style={styles.bold}>
-                    👑 연속 달성 랭킹 <AppText variant="body" style={styles.rankAccent}>{myRank}위</AppText>
+                    👑 일일 연속 랭킹 <AppText variant="body" style={styles.rankAccent}>{myRank}위</AppText>
                   </AppText>
                 </View>
-                <View style={styles.badge}>
+                <Pressable style={styles.badge} onPress={() => go('friends')} hitSlop={8}>
                   <AppText variant="caption" style={styles.badgeText}>
                     랭킹 더보기
                   </AppText>
-                </View>
+                </Pressable>
               </View>
               {ranking.length <= 1 ? (
                 <AppText variant="caption" style={styles.muted}>
@@ -192,27 +206,40 @@ export function HomeScreen() {
                   지금이 기회! 랭킹 올려볼까?
                 </AppText>
               )}
-              {ranking.map((row, i) => (
+              {ranking.slice(0, 3).map((row, i) => (
                 <View key={row.key} style={[styles.rankRow, row.me && styles.meRow]}>
                   <Image source={MEDALS[i] ?? MEDALS[2]} style={styles.medal} resizeMode="contain" />
                   <Image source={getCharacter(row.id).head} style={styles.rankHead} />
-                  <AppText variant="body" style={styles.rankName}>
+                  <AppText variant="body" style={styles.rankName} numberOfLines={1}>
                     {row.name}
                   </AppText>
                   <View style={[styles.weekPill, row.me && styles.weekPillMe]}>
                     <AppText variant="caption" style={styles.weekPillTxt}>
-                      {row.weeks}주 연속
+                      {row.days}일 연속
                     </AppText>
                   </View>
                 </View>
               ))}
+              {myRank > 3 ? (
+                <View style={[styles.rankRow, styles.meRow]}>
+                  <AppText variant="caption" style={styles.rankPlace}>
+                    {myRank}
+                  </AppText>
+                  <Image source={getCharacter(characterId).head} style={styles.rankHead} />
+                  <AppText variant="body" style={styles.rankName} numberOfLines={1}>
+                    {nickname}
+                  </AppText>
+                  <View style={[styles.weekPill, styles.weekPillMe]}>
+                    <AppText variant="caption" style={styles.weekPillTxt}>
+                      {streakDays}일 연속
+                    </AppText>
+                  </View>
+                </View>
+              ) : null}
             </View>
           </View>
         </ScrollView>
       </SafeAreaView>
-      <View style={styles.headerOverlay} pointerEvents="box-none">
-        <ScreenHeader nickname={nickname} coins={coins} characterId={characterId} onPressProfile={() => go('profile')} />
-      </View>
       <BottomNav active="home" onChange={go} />
       {waterOpen && water ? (
         <WaterMissionDialog
@@ -240,6 +267,19 @@ export function HomeScreen() {
           xpAlreadyApplied
           onConfirm={() => setWaterReward(false)}
         />
+      ) : pendingWeeklyReward ? (
+        <MissionRewardDialog
+          character={character.body}
+          coinReward={pendingWeeklyReward.coins}
+          xpReward={pendingWeeklyReward.xp}
+          level={level}
+          currentXp={xp}
+          xpAlreadyApplied
+          kicker="이번주 미션 올클리어!"
+          title="보너스 보상 획득!"
+          sub="풍부한 보상이 지급되었어요"
+          onConfirm={dismissWeeklyReward}
+        />
       ) : null}
     </View>
   );
@@ -247,14 +287,9 @@ export function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.white, position: 'relative' },
-  headerOverlay: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 4 },
   safe: { flex: 1, backgroundColor: 'transparent' },
-  scroll: { paddingBottom: layout.navInset },
-  heroSection: { height: 355 },
-  heroBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 355 },
-  heroBox: { height: HEADER_H + 208, paddingTop: HEADER_H, justifyContent: 'flex-end' },
-  hero: { width: 168, height: 210, alignSelf: 'center' },
-  body: { paddingHorizontal: layout.screen, marginTop: -28 },
+  scroll: {},
+  body: { paddingHorizontal: layout.screen, marginTop: 20 },
   levelCard: {
     backgroundColor: colors.skyCard,
     borderRadius: radius.card,
@@ -306,6 +341,7 @@ const styles = StyleSheet.create({
   medal: { width: 24, height: 24 },
   rankHead: { width: 32, height: 32, borderRadius: 16 },
   rankName: { flex: 1, fontFamily: font.bold },
+  rankPlace: { width: 24, textAlign: 'center', fontFamily: font.bold, color: colors.navy },
   weekPill: { backgroundColor: '#5F8BB8', borderRadius: 999, paddingHorizontal: space[10], paddingVertical: 4 },
   weekPillMe: { backgroundColor: colors.navy },
   weekPillTxt: { color: colors.white, fontFamily: font.bold },

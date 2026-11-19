@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { RefObject, useMemo, useState } from 'react';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { AppText } from './AppText';
 import { colors, font, shadow, space } from '../theme';
@@ -32,9 +32,10 @@ type Props = {
   today?: Date;
   onSelect: (date: Date) => void;
   onClose: () => void;
+  blurTarget?: RefObject<View | null>;
 };
 
-export function ExerciseCalendar({ selected, today = new Date(), onSelect, onClose }: Props) {
+export function ExerciseCalendar({ selected, today = new Date(), onSelect, onClose, blurTarget }: Props) {
   const [cursor, setCursor] = useState(() => startOfMonth(selected));
 
   const cells = useMemo(() => {
@@ -50,10 +51,18 @@ export function ExerciseCalendar({ selected, today = new Date(), onSelect, onClo
 
   return (
     <View style={styles.overlay} pointerEvents="box-none">
-      <BlurView intensity={48} tint="light" style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-      </BlurView>
-      <View style={styles.sheet}>
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        <BlurView
+          intensity={55}
+          tint="dark"
+          style={StyleSheet.absoluteFill}
+          {...(Platform.OS === 'android'
+            ? { blurMethod: 'dimezisBlurView' as const, blurTarget }
+            : null)}
+        />
+        <View style={styles.dim} pointerEvents="none" />
+      </Pressable>
+      <View style={styles.sheet} pointerEvents="auto">
         <View style={styles.monthRow}>
           <Pressable
             style={styles.round}
@@ -84,10 +93,27 @@ export function ExerciseCalendar({ selected, today = new Date(), onSelect, onClo
             const selectedDay = sameDay(date, selected);
             const todayDay = sameDay(date, today);
             const marked = dateHasRecord(date, today);
+            const future = isFuture(date, today);
             return (
-              <Pressable key={date.toISOString()} onPress={() => onSelect(date)} style={styles.cell}>
+              <Pressable
+                key={date.toISOString()}
+                onPress={() => {
+                  if (future) return;
+                  onSelect(date);
+                }}
+                disabled={future}
+                style={[styles.cell, future && styles.cellOff]}
+              >
                 <View style={[styles.dayChip, selectedDay && styles.daySelected, todayDay && !selectedDay && styles.dayToday]}>
-                  <AppText style={[styles.dayNum, (selectedDay || todayDay) && styles.dayNumOn]}>{date.getDate()}</AppText>
+                  <AppText
+                    style={[
+                      styles.dayNum,
+                      (selectedDay || todayDay) && styles.dayNumOn,
+                      future && styles.dayNumOff,
+                    ]}
+                  >
+                    {date.getDate()}
+                  </AppText>
                 </View>
                 <View style={[styles.dot, marked ? styles.dotOn : null]} />
               </Pressable>
@@ -107,7 +133,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
+  },
+  dim: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   sheet: {
     backgroundColor: colors.white,
@@ -115,7 +145,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[16],
     paddingTop: space[16],
     paddingBottom: space[20],
+    zIndex: 2,
     ...shadow.soft,
+    elevation: 8,
   },
   monthRow: {
     flexDirection: 'row',
@@ -149,6 +181,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     minHeight: 48,
   },
+  cellOff: { opacity: 0.35 },
   dayChip: {
     width: 32,
     height: 32,
@@ -160,6 +193,7 @@ const styles = StyleSheet.create({
   dayToday: { borderWidth: 1.5, borderColor: colors.navy },
   dayNum: { fontFamily: font.medium, color: '#4A4A4A' },
   dayNumOn: { fontFamily: font.bold, color: colors.navy },
+  dayNumOff: { color: colors.gray },
   dot: { width: 5, height: 5, borderRadius: 3, marginTop: 3, backgroundColor: 'transparent' },
   dotOn: { backgroundColor: '#5D5D8B' },
 });

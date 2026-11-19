@@ -15,6 +15,16 @@ const defaultMissions = [
   { id: 'cardio', title: '유산소 30분', current: 0, goal: 30, unit: '분', done: false },
 ];
 
+function nicknameKey(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function nicknameTaken(db, nickname, exceptId) {
+  const key = nicknameKey(nickname);
+  if (!key) return false;
+  return db.users.some((user) => user.id !== exceptId && nicknameKey(user.nickname) === key);
+}
+
 function normalizeUsername(value) {
   return String(value || '').trim().toLowerCase();
 }
@@ -30,6 +40,7 @@ function emptySurvey() {
     equipment: [],
     goal: null,
     frequency: null,
+    workoutDays: [],
     focus: [],
     cautions: [],
     noCautions: false,
@@ -135,6 +146,11 @@ function publicUser(user) {
     missions: user.missions,
     missionsDate: user.missionsDate ?? '',
     ownedItems: user.ownedItems,
+    workoutLogs: user.workoutLogs ?? [],
+    streakDate: user.streakDate ?? '',
+    equippedItem: user.equippedItem || 'jacket',
+    weeklyBonusWeek: user.weeklyBonusWeek || '',
+    nicknameChanges: user.nicknameChanges ?? 0,
   };
 }
 
@@ -244,6 +260,10 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || '/', `http://localhost:${PORT}`);
 
   try {
+    if (req.method === 'GET' && (url.pathname === '/api/health' || url.pathname === '/')) {
+      return send(res, 200, { ok: true });
+    }
+
     if (req.method === 'POST' && url.pathname === '/api/signup') {
       const body = await readBody(req);
       const username = normalizeUsername(body.username);
@@ -262,15 +282,20 @@ const server = http.createServer(async (req, res) => {
       if (db.users.some((user) => user.username === username)) {
         return send(res, 409, { error: '이미 사용 중인 아이디예요.' });
       }
+      if (nicknameTaken(db, nickname)) {
+        return send(res, 409, { error: '이미 사용 중인 닉네임이에요.' });
+      }
       db.users.push({
         id: crypto.randomUUID(),
         username,
         passwordHash: hashPassword(password),
         nickname,
+        nicknameChanges: 0,
         coins: 0,
         level: 1,
         xp: 0,
         streakDays: 0,
+        streakDate: '',
         characterId: 'otter',
         onboarded: false,
         firstLoginRewarded: false,
@@ -278,6 +303,7 @@ const server = http.createServer(async (req, res) => {
         missions: defaultMissions,
         missionsDate: '',
         ownedItems: ['jacket'],
+        equippedItem: 'jacket',
         friendIds: [],
         token: null,
       });
@@ -334,12 +360,44 @@ const server = http.createServer(async (req, res) => {
       const user = findUserByToken(db, req);
       if (!user) return send(res, 401, { error: '로그인이 필요해요.' });
       const body = await readBody(req);
-      const fields = ['nickname', 'coins', 'level', 'xp', 'streakDays', 'characterId', 'onboarded', 'survey', 'missions', 'missionsDate', 'ownedItems'];
+      const fields = ['coins', 'level', 'xp', 'streakDays', 'characterId', 'onboarded', 'survey', 'missions', 'missionsDate', 'ownedItems', 'workoutLogs', 'streakDate', 'equippedItem', 'weeklyBonusWeek'];
       for (const key of fields) {
         if (body[key] !== undefined) user[key] = body[key];
       }
       saveDb(db);
       return send(res, 200, { user: publicUser(user) });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/profile') {
+      const db = loadDb();
+      const user = findUserByToken(db, req);
+      if (!user) return send(res, 401, { error: '로그인이 필요해요.' });
+      const body = await readBody(req);
+      const nickname = String(body.nickname || '').trim();
+      if (!nickname || nickname.length > 12) {
+        return send(res, 400, { error: '닉네임은 1~12자로 입력해 주세요.' });
+      }
+      let nicknameCost = 0;
+      if (nicknameKey(nickname) !== nicknameKey(user.nickname)) {
+        if (nicknameTaken(db, nickname, user.id)) {
+          return send(res, 409, { error: '이미 사용 중인 닉네임이에요.' });
+        }
+        const changes = user.nicknameChanges ?? 0;
+        if (changes > 0) {
+          if ((user.coins ?? 0) < 3000) {
+            return send(res, 400, { error: '닉네임 변경에 3,000코인이 필요해요.' });
+          }
+          user.coins -= 3000;
+          nicknameCost = 3000;
+        }
+        user.nickname = nickname;
+        user.nicknameChanges = changes + 1;
+      }
+      if (body.survey && typeof body.survey === 'object') {
+        user.survey = { ...emptySurvey(), ...(user.survey || {}), ...body.survey };
+      }
+      saveDb(db);
+      return send(res, 200, { user: publicUser(user), nicknameCost });
     }
 
     if (req.method === 'GET' && url.pathname === '/api/posts') {
@@ -502,6 +560,26 @@ const server = http.createServer(async (req, res) => {
         })
         .filter(Boolean);
       return send(res, 200, { incoming, outgoing });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/friends/suggest') {
+      const db = loadDb();
+      const user = findUserByToken(db, req);
+      if (!user) return send(res, 401, { error: '로그인이 필요해요.' });
+      const friendIds = new Set(user.friendIds || []);
+      const results = db.users
+        .filter((item) => item.id !== user.id && !friendIds.has(item.id))
+        .sort((a, b) => (b.streakDays || 0) - (a.streakDays || 0) || (b.level || 0) - (a.level || 0))
+        .slice(0, 12)
+        .map((item) => {
+          const incoming = pendingRequest(db, item.id, user.id);
+          const outgoing = pendingRequest(db, user.id, item.id);
+          let relation = 'none';
+          if (incoming) relation = 'incoming';
+          else if (outgoing) relation = 'outgoing';
+          return { ...friendPreview(item), relation, requestId: incoming?.id || outgoing?.id || null };
+        });
+      return send(res, 200, { users: results });
     }
 
     if (req.method === 'GET' && url.pathname === '/api/friends/search') {

@@ -1,34 +1,42 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Image, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Image, type ImageStyle, Platform, Pressable, ScrollView, StyleSheet, TextInput, TextStyle, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '../components/AppText';
 import { BottomNav } from '../components/BottomNav';
-import { STATUS_BAR_HEIGHT } from '../components/PhoneStatusBar';
+import { BackGlyph } from '../components/NavGlyph';
 import { asCharacterHead } from '../data/characters';
 import * as api from '../api';
 import { useApp } from '../store/AppProvider';
+import { useAppInsets } from '../hooks/useAppInsets';
 import { colors, fieldFont, font, layout, radius, space } from '../theme';
 
 type Tab = 'friends' | 'add' | 'requests';
 
 export function FriendsScreen() {
-  const { go, previousTab, token } = useApp();
+  const { go, previousTab, token, openChat } = useApp();
+  const { top } = useAppInsets();
   const [tab, setTab] = useState<Tab>('friends');
   const [friends, setFriends] = useState<api.FriendPreview[]>([]);
   const [incoming, setIncoming] = useState<api.FriendRequestRow[]>([]);
   const [outgoing, setOutgoing] = useState<api.FriendRequestRow[]>([]);
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<api.FriendSearchHit[] | null>(null);
+  const [suggested, setSuggested] = useState<api.FriendSearchHit[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     if (!token) return;
     try {
-      const [list, reqs] = await Promise.all([api.listFriends(token), api.listFriendRequests(token)]);
+      const [list, reqs, recs] = await Promise.all([
+        api.listFriends(token),
+        api.listFriendRequests(token),
+        api.suggestFriends(token),
+      ]);
       setFriends(list.friends);
       setIncoming(reqs.incoming);
       setOutgoing(reqs.outgoing);
+      setSuggested(recs.users);
     } catch (err) {
       setError(err instanceof Error ? err.message : '친구 정보를 불러오지 못했어요.');
     }
@@ -107,10 +115,10 @@ export function FriendsScreen() {
 
   return (
     <View style={styles.root}>
-      <SafeAreaView style={styles.safe} edges={[]}>
+      <SafeAreaView style={[styles.safe, { paddingTop: top }]} edges={[]}>
         <View style={styles.top}>
-          <Pressable style={styles.iconBtn} onPress={() => go('profile')}>
-            <Image source={require('../../assets/ui/chevron.png')} style={styles.backIcon} />
+          <Pressable style={styles.iconBtn} onPress={() => go('profile')} hitSlop={12}>
+            <BackGlyph />
           </Pressable>
           <AppText variant="heading" style={styles.heading}>
             친구 목록
@@ -137,10 +145,15 @@ export function FriendsScreen() {
                 <AppText style={styles.empty}>아직 친구가 없어요. 친구 추가에서 찾아보세요.</AppText>
               ) : (
                 friends.map((friend) => (
-                  <View key={friend.id} style={styles.plainRow}>
-                    <Image source={asCharacterHead(friend.characterId)} style={styles.avatar} />
+                  <Pressable
+                    key={friend.id}
+                    style={({ pressed }) => [styles.plainRow, pressed && { opacity: 0.7 }]}
+                    onPress={() => openChat(friend.id)}
+                  >
+                    <Image source={asCharacterHead(friend.characterId)} style={styles.avatar as ImageStyle} />
                     <AppText style={styles.name}>{friend.nickname}</AppText>
-                  </View>
+                    <AppText style={styles.chatHint}>채팅</AppText>
+                  </Pressable>
                 ))
               )}
               <AppText style={styles.count}>친구 {friends.length}명</AppText>
@@ -152,7 +165,10 @@ export function FriendsScreen() {
               <View style={styles.searchRow}>
                 <TextInput
                   value={query}
-                  onChangeText={setQuery}
+                  onChangeText={(text) => {
+                    setQuery(text);
+                    if (!text.trim()) setHits(null);
+                  }}
                   placeholder="닉네임 또는 아이디"
                   placeholderTextColor="#B0B4B8"
                   selectionColor={colors.navy}
@@ -170,11 +186,32 @@ export function FriendsScreen() {
               {hits && hits.length === 0 ? <AppText style={styles.empty}>검색 결과가 없어요.</AppText> : null}
               {(hits ?? []).map((hit) => (
                 <View key={hit.id} style={styles.result}>
-                  <Image source={asCharacterHead(hit.characterId)} style={styles.avatar} />
+                  <Image source={asCharacterHead(hit.characterId)} style={styles.avatar as ImageStyle} />
                   <AppText style={styles.name}>{hit.nickname}</AppText>
                   <RelationButton hit={hit} busy={busy} onRequest={() => requestUser(hit.id)} onAccept={() => hit.requestId && accept(hit.requestId)} />
                 </View>
               ))}
+              {!hits ? (
+                <>
+                  <AppText style={styles.section}>추천 친구</AppText>
+                  {suggested.length === 0 ? (
+                    <AppText style={styles.empty}>지금은 추천할 친구가 없어요. 닉네임으로 검색해 보세요.</AppText>
+                  ) : (
+                    suggested.map((hit) => (
+                      <View key={hit.id} style={styles.result}>
+                        <Image source={asCharacterHead(hit.characterId)} style={styles.avatar as ImageStyle} />
+                        <View style={styles.suggestText}>
+                          <AppText style={styles.suggestName}>{hit.nickname}</AppText>
+                          <AppText style={styles.suggestMeta}>
+                            LV.{hit.level} · {hit.streakDays}일 연속
+                          </AppText>
+                        </View>
+                        <RelationButton hit={hit} busy={busy} onRequest={() => requestUser(hit.id)} onAccept={() => hit.requestId && accept(hit.requestId)} />
+                      </View>
+                    ))
+                  )}
+                </>
+              ) : null}
             </>
           ) : null}
 
@@ -184,7 +221,7 @@ export function FriendsScreen() {
               {incoming.length === 0 ? <AppText style={styles.empty}>받은 친구 요청이 없어요.</AppText> : null}
               {incoming.map((row) => (
                 <View key={row.id} style={styles.result}>
-                  <Image source={asCharacterHead(row.user.characterId)} style={styles.avatar} />
+                  <Image source={asCharacterHead(row.user.characterId)} style={styles.avatar as ImageStyle} />
                   <AppText style={styles.name}>{row.user.nickname}</AppText>
                   <Pressable style={styles.accept} onPress={() => accept(row.id)} disabled={busy}>
                     <AppText style={styles.acceptTxt}>수락</AppText>
@@ -198,7 +235,7 @@ export function FriendsScreen() {
               {outgoing.length === 0 ? <AppText style={styles.empty}>보낸 친구 요청이 없어요.</AppText> : null}
               {outgoing.map((row) => (
                 <View key={row.id} style={styles.result}>
-                  <Image source={asCharacterHead(row.user.characterId)} style={styles.avatar} />
+                  <Image source={asCharacterHead(row.user.characterId)} style={styles.avatar as ImageStyle} />
                   <AppText style={styles.name}>{row.user.nickname}</AppText>
                   <Pressable style={styles.decline} onPress={() => decline(row.id)} disabled={busy}>
                     <AppText style={styles.declineTxt}>취소</AppText>
@@ -269,11 +306,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: layout.header,
     paddingBottom: layout.navInset,
-    paddingTop: Platform.OS === 'web' ? STATUS_BAR_HEIGHT : 0,
   },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 40 },
-  iconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  backIcon: { width: 14, height: 12, transform: [{ rotate: '180deg' }] },
+  iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },
   heading: { color: colors.navy, fontFamily: font.bold },
   tabs: { flexDirection: 'row', gap: 8, marginTop: space[16], marginBottom: space[12] },
   tab: {
@@ -293,7 +328,8 @@ const styles = StyleSheet.create({
   empty: { textAlign: 'center', color: colors.gray, fontFamily: font.medium, marginTop: space[24] },
   count: { textAlign: 'center', color: colors.gray, fontFamily: font.medium, marginTop: space[16] },
   section: { fontFamily: font.bold, color: colors.navy, marginTop: space[8] },
-  plainRow: { flexDirection: 'row', alignItems: 'center', gap: space[16], paddingVertical: space[10] },
+  plainRow: { flexDirection: 'row', alignItems: 'center', gap: space[16], paddingVertical: space[12], minHeight: 64 },
+  chatHint: { fontFamily: font.bold, fontSize: 13, color: colors.navy },
   result: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -307,6 +343,9 @@ const styles = StyleSheet.create({
   },
   avatar: { width: 48, height: 48, borderRadius: 24 },
   name: { flex: 1, fontFamily: font.bold, fontSize: 16, color: colors.navy },
+  suggestText: { flex: 1 },
+  suggestName: { fontFamily: font.bold, fontSize: 16, color: colors.navy },
+  suggestMeta: { fontFamily: font.medium, fontSize: 12, lineHeight: 16, color: colors.gray, marginTop: 2 },
   searchRow: { flexDirection: 'row', gap: 8, marginBottom: space[8] },
   search: {
     flex: 1,
@@ -320,8 +359,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     backgroundColor: colors.white,
     ...(Platform.OS === 'android' ? { includeFontPadding: false, textAlignVertical: 'center' } : null),
-    // @ts-expect-error web
-    outlineStyle: 'none',
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null),
   },
   searchBtn: {
     height: 44,
@@ -332,11 +370,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   searchBtnTxt: { color: colors.white, fontFamily: font.bold },
-  add: { backgroundColor: colors.sky, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  add: { backgroundColor: colors.sky, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, minHeight: 40, justifyContent: 'center' },
   addTxt: { color: colors.navy, fontFamily: font.bold, fontSize: 13 },
-  accept: { backgroundColor: colors.navy, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  accept: { backgroundColor: colors.navy, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, minHeight: 40, justifyContent: 'center' },
   acceptTxt: { color: colors.white, fontFamily: font.bold, fontSize: 13 },
-  decline: { backgroundColor: colors.sky, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  decline: { backgroundColor: colors.sky, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, minHeight: 40, justifyContent: 'center' },
   declineTxt: { color: colors.navy, fontFamily: font.bold, fontSize: 13 },
   ghost: { backgroundColor: '#EEF2F6', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
   ghostTxt: { color: colors.gray, fontFamily: font.bold, fontSize: 13 },

@@ -1,5 +1,9 @@
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+
+const API_URL_KEY = 'mypt.apiUrl';
+const REMOTE_CONFIG = 'https://imamnotjiwon.github.io/mypt/api-config.json';
 
 function resolveApiBase() {
   if (Platform.OS === 'web') return 'http://localhost:4000';
@@ -15,7 +19,31 @@ function resolveApiBase() {
   return 'http://localhost:4000';
 }
 
-const API_BASE = resolveApiBase();
+let apiBase = resolveApiBase();
+
+export async function initApiBase() {
+  if (Platform.OS === 'web') return apiBase;
+  try {
+    const cached = await AsyncStorage.getItem(API_URL_KEY);
+    if (cached) apiBase = cached.replace(/\/$/, '');
+  } catch {
+    /* keep baked URL */
+  }
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 4000);
+    const res = await fetch(`${REMOTE_CONFIG}?t=${Date.now()}`, { signal: ctrl.signal });
+    clearTimeout(timer);
+    const data = (await res.json()) as { apiUrl?: string };
+    if (typeof data.apiUrl === 'string' && /^https?:\/\//.test(data.apiUrl)) {
+      apiBase = data.apiUrl.replace(/\/$/, '');
+      await AsyncStorage.setItem(API_URL_KEY, apiBase);
+    }
+  } catch {
+    /* use cache or baked URL */
+  }
+  return apiBase;
+}
 
 export type RemoteUser = {
   id: string;
@@ -32,6 +60,11 @@ export type RemoteUser = {
   missions: unknown;
   missionsDate?: string;
   ownedItems: string[];
+  workoutLogs?: unknown[];
+  streakDate?: string;
+  equippedItem?: string;
+  weeklyBonusWeek?: string;
+  nicknameChanges?: number;
 };
 
 type ApiError = { error?: string };
@@ -39,15 +72,16 @@ type ApiError = { error?: string };
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, {
+    res = await fetch(`${apiBase}${path}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        'User-Agent': 'mypt-app',
         ...(options.headers ?? {}),
       },
     });
   } catch {
-    throw new Error('서버에 연결할 수 없어요. 터미널에서 npm run server 를 실행해 주세요.');
+    throw new Error('서버에 연결할 수 없어요. 컴퓨터에서 npm run server:public 을 실행해 주세요.');
   }
   const data = (await res.json().catch(() => ({}))) as T & ApiError;
   if (!res.ok) throw new Error(data.error || '요청에 실패했어요.');
@@ -86,6 +120,14 @@ export function saveMe(token: string, user: Partial<RemoteUser>) {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(user),
+  });
+}
+
+export function updateProfile(token: string, input: { nickname: string; survey: Record<string, unknown> }) {
+  return request<{ user: RemoteUser; nicknameCost: number }>('/api/profile', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(input),
   });
 }
 
@@ -220,6 +262,12 @@ export function listFriendRequests(token: string) {
 
 export function searchUsers(token: string, q: string) {
   return request<{ users: FriendSearchHit[] }>(`/api/friends/search?q=${encodeURIComponent(q)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function suggestFriends(token: string) {
+  return request<{ users: FriendSearchHit[] }>('/api/friends/suggest', {
     headers: { Authorization: `Bearer ${token}` },
   });
 }

@@ -16,6 +16,7 @@ export function CharacterSelectScreen() {
   const [index, setIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const current = CHARACTERS[index];
+  const done = progress >= 1;
 
   useEffect(() => {
     const start = Date.now();
@@ -33,18 +34,20 @@ export function CharacterSelectScreen() {
         <View style={styles.progressWrap}>
           <PercentRing progress={progress} />
           <AppText variant="body" style={styles.making}>
-            맞춤 루틴 만드는 중...
+            {done ? '맞춤 루틴이 완성됐어요!' : '맞춤 루틴 만드는 중...'}
           </AppText>
         </View>
 
-        <AppText variant="title" style={styles.title}>
+        <AppText style={styles.title}>
           함께 성장할 또 하나의{'\n'}나를 선택하세요.
         </AppText>
         <AppText variant="caption" style={styles.sub}>
           기본 체형으로 표시된 모습이에요
         </AppText>
 
-        <CharacterCarousel index={index} onIndexChange={setIndex} />
+        <View style={styles.stage}>
+          <CharacterCarousel index={index} onIndexChange={setIndex} />
+        </View>
 
         <View style={styles.cta}>
           <PrimaryButton label={`${current.name} 선택하기`} onPress={() => selectCharacter(current.id)} />
@@ -58,18 +61,23 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     paddingHorizontal: layout.screen,
-    paddingTop: (Platform.OS === 'web' ? STATUS_BAR_HEIGHT : space[8]) + space[16],
+    paddingTop: (Platform.OS === 'web' ? STATUS_BAR_HEIGHT : space[8]) + space[12],
   },
-  progressWrap: { alignItems: 'center', marginTop: space[8] },
-  making: { marginTop: space[10], color: colors.black, textAlign: 'center' },
+  progressWrap: { alignItems: 'center', marginTop: space[24] },
+  making: { marginTop: space[12], color: colors.black, textAlign: 'center' },
   title: {
-    marginTop: space[18],
+    marginTop: space[16],
     textAlign: 'center',
-    fontFamily: font.semiBold,
+    fontFamily: font.extraBold,
     fontSize: 24,
-    lineHeight: 30,
+    lineHeight: 32,
     color: colors.navy,
   },
-  sub: { textAlign: 'center', color: colors.muted, marginTop: space[8] },
-  cta: { paddingBottom: space[16] },
+  sub: { textAlign: 'center', color: colors.muted, marginTop: space[8], marginBottom: space[8] },
+  stage: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    marginBottom: 4,
+  },
+  cta: { paddingTop: 28, paddingBottom: space[24] },
 });

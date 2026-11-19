@@ -3,7 +3,8 @@ import { Image, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from './AppText';
 import { PrimaryButton } from './PrimaryButton';
-import { STATUS_BAR_HEIGHT } from './PhoneStatusBar';
+import { useAppInsets } from '../hooks/useAppInsets';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { Character } from '../data/characters';
 import { colors, fieldFont, font, layout, space } from '../theme';
 
@@ -26,7 +27,7 @@ type Props = {
   level: number;
   initial?: { title: string; body: string; photos: string[] };
   onClose: () => void;
-  onPublish: (result: ComposeResult) => void;
+  onPublish: (result: ComposeResult) => void | Promise<void>;
 };
 
 function pickImage(onPicked: (uri: string) => void) {
@@ -47,6 +48,8 @@ function pickImage(onPicked: (uri: string) => void) {
 }
 
 export function CommunityCompose({ kind, me, level, initial, onClose, onPublish }: Props) {
+  const { top, bottom } = useAppInsets();
+  const keyboard = useKeyboardInset();
   const [title, setTitle] = useState(initial?.title ?? '');
   const [body, setBody] = useState(initial?.body ?? '');
   const [photos, setPhotos] = useState<(string | null)[]>(() => {
@@ -57,6 +60,8 @@ export function CommunityCompose({ kind, me, level, initial, onClose, onPublish 
     return next;
   });
   const [visibility, setVisibility] = useState<Visibility>('friends');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
   const canPost = title.trim().length > 0 || body.trim().length > 0;
   const heading = kind === 'diet' ? '식단 공유' : '운동 인증';
 
@@ -72,9 +77,9 @@ export function CommunityCompose({ kind, me, level, initial, onClose, onPublish 
 
   return (
     <View style={styles.root}>
-      <SafeAreaView style={styles.safe} edges={[]}>
+      <SafeAreaView style={[styles.safe, { paddingTop: top }]} edges={[]}>
         <View style={styles.top}>
-          <Pressable style={styles.backBtn} onPress={onClose}>
+          <Pressable style={styles.backBtn} onPress={onClose} hitSlop={12}>
             <AppText style={styles.backTxt}>‹</AppText>
           </Pressable>
           <AppText variant="heading" style={styles.topTitle}>
@@ -83,7 +88,12 @@ export function CommunityCompose({ kind, me, level, initial, onClose, onPublish 
           <View style={styles.backBtn} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.userRow}>
             <Image source={me.head} style={styles.avatar} resizeMode="contain" />
             <View>
@@ -132,7 +142,7 @@ export function CommunityCompose({ kind, me, level, initial, onClose, onPublish 
             {photos.map((uri, i) => (
               <Pressable key={i} style={styles.photoSlot} onPress={() => addPhoto(i)}>
                 {uri ? (
-                  <Image source={{ uri }} style={styles.photo} />
+                  <Image source={{ uri }} style={styles.photo} resizeMode="cover" />
                 ) : i === 0 ? (
                   <View style={styles.photoEmpty}>
                     <Image source={{ uri: `data:image/svg+xml;utf8,${CAM_SVG}` }} style={styles.cam} />
@@ -184,22 +194,31 @@ export function CommunityCompose({ kind, me, level, initial, onClose, onPublish 
               </View>
             </Pressable>
           </View>
+        </ScrollView>
 
-          <View style={{ marginTop: space[24] }}>
-            <PrimaryButton
-              label={initial ? '수정하기' : '올리기'}
-              disabled={!canPost}
-              onPress={() =>
-                onPublish({
+        <View style={[styles.footer, { paddingBottom: 12 + (keyboard > 0 ? 8 : bottom) + keyboard }]}>
+          {error ? <AppText style={styles.error}>{error}</AppText> : null}
+          <PrimaryButton
+            label={busy ? (initial ? '수정 중...' : '올리는 중...') : initial ? '수정하기' : '올리기'}
+            disabled={!canPost || busy}
+            onPress={async () => {
+              if (busy) return;
+              setError('');
+              setBusy(true);
+              try {
+                await onPublish({
                   title: title.trim() || heading,
                   body: body.trim(),
                   photos: photos.filter((item): item is string => !!item),
                   visibility,
-                })
+                });
+              } catch (err) {
+                setError(err instanceof Error ? err.message : '게시물을 올리지 못했어요.');
+                setBusy(false);
               }
-            />
-          </View>
-        </ScrollView>
+            }}
+          />
+        </View>
       </SafeAreaView>
     </View>
   );
@@ -207,15 +226,12 @@ export function CommunityCompose({ kind, me, level, initial, onClose, onPublish 
 
 const styles = StyleSheet.create({
   root: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: layout.navHeight,
+    ...StyleSheet.absoluteFill,
     backgroundColor: colors.white,
-    zIndex: 32,
+    zIndex: 40,
+    elevation: 24,
   },
-  safe: { flex: 1, paddingTop: Platform.OS === 'web' ? STATUS_BAR_HEIGHT : 0 },
+  safe: { flex: 1 },
   top: {
     height: 44,
     flexDirection: 'row',
@@ -226,7 +242,12 @@ const styles = StyleSheet.create({
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   backTxt: { fontFamily: font.bold, fontSize: 28, lineHeight: 36, color: colors.navy },
   topTitle: { fontFamily: font.bold, color: colors.black },
-  scroll: { paddingHorizontal: layout.screen, paddingBottom: layout.navInset + 24 },
+  scroll: { paddingHorizontal: layout.screen, paddingBottom: 24 },
+  footer: {
+    paddingHorizontal: layout.screen,
+    paddingTop: 8,
+    backgroundColor: colors.white,
+  },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: space[8], marginBottom: space[20] },
   avatar: { width: 40, height: 40, borderRadius: 20 },
   name: { fontFamily: font.bold, fontSize: 16, lineHeight: 22, color: colors.black },
@@ -292,7 +313,7 @@ const styles = StyleSheet.create({
   cam: { width: 20, height: 16, marginBottom: 2 },
   photoAdd: { fontFamily: font.medium, fontSize: 9, color: colors.gray, textAlign: 'center' },
   plus: { fontFamily: font.medium, fontSize: 22, color: '#C5CDD6' },
-  visHead: { marginTop: space[24] + 20 + space[12], marginBottom: space[12] },
+  visHead: { marginTop: space[20], marginBottom: space[12] },
   lock: { width: 22, height: 24 },
   visRow: { flexDirection: 'row', gap: 10 },
   visBtn: {
@@ -313,4 +334,5 @@ const styles = StyleSheet.create({
   visSub: { fontFamily: font.medium, fontSize: 11, lineHeight: 16, color: colors.gray, marginTop: 2 },
   visOnTxt: { color: colors.white },
   visOnSub: { color: 'rgba(255,255,255,0.8)' },
+  error: { fontFamily: font.medium, fontSize: 13, color: '#E35D5D', marginBottom: 8, textAlign: 'center' },
 });
