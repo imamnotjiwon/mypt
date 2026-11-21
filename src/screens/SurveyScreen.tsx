@@ -463,7 +463,17 @@ export function SurveyScreen() {
             </>
           )}
         </ScrollView>
-        <View style={[styles.footer, { paddingBottom: space[16] + (Platform.OS === 'ios' ? 0 : Math.min(keyboardInset, 12)) }]}>
+        <View
+          style={[
+            styles.footer,
+            {
+              paddingBottom:
+                layout.onboardCtaBottom +
+                bottom +
+                (Platform.OS === 'ios' ? 0 : Math.min(keyboardInset, 12)),
+            },
+          ]}
+        >
           <PrimaryButton label="다음" onPress={next} disabled={!canNext} />
         </View>
       </KeyboardAvoidingView>
@@ -603,7 +613,7 @@ const styles = StyleSheet.create({
   noneIcon: { width: 18, height: 18 },
   noneText: { fontFamily: font.bold, color: colors.body },
   noneTextOn: { color: colors.navy },
-  footer: { paddingTop: space[8], backgroundColor: colors.white },
+  footer: { paddingTop: space[16], backgroundColor: colors.white },
   sheetDim: {
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.35)',

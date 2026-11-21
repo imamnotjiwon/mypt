@@ -1,7 +1,7 @@
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from './AppText';
-import { CloseGlyph } from './NavGlyph';
-import { CoinMark, SearchMark } from './Marks';
+import { CloseGlyph, SearchGlyph } from './NavGlyph';
+import { CoinMark } from './Marks';
 import { useAppInsets } from '../hooks/useAppInsets';
 import { colors, layout, shadow, space } from '../theme';
 import { CharacterId, getCharacter } from '../data/characters';
@@ -57,7 +57,7 @@ export function ScreenHeader({
       </Pressable>
       {onPressSearch ? (
         <Pressable style={styles.search} onPress={onPressSearch} hitSlop={12}>
-          {searchActive ? <CloseGlyph /> : <SearchMark size={20} />}
+          {searchActive ? <CloseGlyph size={40} /> : <SearchGlyph size={40} />}
         </Pressable>
       ) : showCoins ? (
         <Pressable style={styles.coin} onPress={onPressCoins} hitSlop={12} disabled={!onPressCoins}>
@@ -122,10 +122,7 @@ const styles = StyleSheet.create({
   search: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadow.soft,
   },
 });

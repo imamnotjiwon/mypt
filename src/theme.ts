@@ -59,6 +59,9 @@ export const layout = {
   buttonHeight: 58,
   loginButtonHeight: 68,
   avatar: 40,
+  /** 설문 / 캐릭터 선택 / 시작하기 CTA 공통 여백 */
+  onboardCtaTop: 16,
+  onboardCtaBottom: 24,
 };
 
 export const shadow = {

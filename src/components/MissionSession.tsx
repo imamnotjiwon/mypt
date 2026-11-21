@@ -274,8 +274,6 @@ const styles = StyleSheet.create({
   round: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,

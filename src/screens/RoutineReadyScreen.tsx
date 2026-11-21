@@ -4,6 +4,7 @@ import { AppText } from '../components/AppText';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { STATUS_BAR_HEIGHT } from '../components/PhoneStatusBar';
 import { CharacterId, getCharacter } from '../data/characters';
+import { useAppInsets } from '../hooks/useAppInsets';
 import { colors, font, layout, space } from '../theme';
 import { useApp } from '../store/AppProvider';
 
@@ -21,12 +22,13 @@ const READY_SCENES: Record<CharacterId, ImageSourcePropType> = {
 
 export function RoutineReadyScreen() {
   const { finishOnboarding, characterId } = useApp();
+  const { bottom } = useAppInsets();
   const character = getCharacter(characterId);
   const scene = READY_SCENES[character.id];
 
   return (
     <View style={styles.root}>
-      <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <SafeAreaView style={styles.safe} edges={[]}>
         <View style={styles.header}>
           <View style={styles.check}>
             <AppText style={styles.checkMark}>✓</AppText>
@@ -43,7 +45,7 @@ export function RoutineReadyScreen() {
           <Image source={scene} style={styles.scene} resizeMode="contain" />
         </View>
 
-        <View style={styles.bottom}>
+        <View style={[styles.bottom, { paddingBottom: layout.onboardCtaBottom + bottom }]}>
           <PrimaryButton label="시작하기" onPress={() => finishOnboarding()} />
         </View>
       </SafeAreaView>
@@ -93,5 +95,5 @@ const styles = StyleSheet.create({
     width: '108%',
     height: 460,
   },
-  bottom: { paddingBottom: space[20], paddingTop: space[8] },
+  bottom: { paddingTop: layout.onboardCtaTop },
 });

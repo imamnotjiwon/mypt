@@ -8,11 +8,13 @@ import { CharacterCarousel } from '../components/CharacterCarousel';
 import { PercentRing } from '../components/ProgressRing';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { STATUS_BAR_HEIGHT } from '../components/PhoneStatusBar';
+import { useAppInsets } from '../hooks/useAppInsets';
 import { useApp } from '../store/AppProvider';
 import { colors, font, layout, space } from '../theme';
 
 export function CharacterSelectScreen() {
   const { selectCharacter } = useApp();
+  const { bottom } = useAppInsets();
   const [index, setIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const current = CHARACTERS[index];
@@ -54,7 +56,7 @@ export function CharacterSelectScreen() {
           <CharacterCarousel index={index} onIndexChange={setIndex} />
         </View>
 
-        <View style={styles.cta}>
+        <View style={[styles.cta, { paddingBottom: layout.onboardCtaBottom + bottom }]}>
           <PrimaryButton label={`${current.name} 선택하기`} onPress={() => selectCharacter(current.id)} />
         </View>
       </SafeAreaView>
@@ -84,5 +86,5 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     marginBottom: 4,
   },
-  cta: { paddingTop: 28, paddingBottom: space[24] },
+  cta: { paddingTop: layout.onboardCtaTop },
 });

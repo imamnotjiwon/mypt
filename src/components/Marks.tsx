@@ -40,8 +40,8 @@ export function CoinMark({ size = 18 }: { size?: number }) {
 export function SearchMark({ size = 20 }: { size?: number }) {
   return (
     <Image
-      source={require('../../assets/community/icon-search.png')}
-      style={{ width: size, height: size }}
+      source={require('../../assets/ui/icon-nav-search-mark.png')}
+      style={{ width: size, height: size, tintColor: '#194373' }}
       resizeMode="contain"
     />
   );
