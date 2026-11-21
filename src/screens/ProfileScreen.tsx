@@ -87,14 +87,14 @@ export function ProfileScreen() {
             <Pressable onPress={openCoinShop} android_ripple={{ color: 'rgba(25,67,115,0.08)' }} style={styles.menuPress}>
               <MenuCard title="코인" sub="코인 충전하기" extra={`${coins.toLocaleString()}`} coin />
             </Pressable>
-            <Pressable onPress={() => go('dex')} android_ripple={{ color: 'rgba(25,67,115,0.08)' }} style={styles.menuPress}>
-              <MenuCard title="캐릭터" sub="캐릭터 도감" />
-            </Pressable>
             <Pressable onPress={() => go('friends')} android_ripple={{ color: 'rgba(25,67,115,0.08)' }} style={styles.menuPress}>
               <MenuCard title="친구" sub="친구 목록 및 친구 추가" />
             </Pressable>
             <Pressable onPress={() => go('survey')} android_ripple={{ color: 'rgba(25,67,115,0.08)' }} style={styles.menuPress}>
               <MenuCard title="설문조사" sub="맞춤 정보 다시 입력" />
+            </Pressable>
+            <Pressable onPress={() => go('dex')} android_ripple={{ color: 'rgba(25,67,115,0.08)' }} style={styles.menuPress}>
+              <MenuCard title="캐릭터 선택" sub="캐릭터 바꾸기 · 도감" />
             </Pressable>
             <Pressable onPress={logout} android_ripple={{ color: 'rgba(25,67,115,0.08)' }} style={styles.menuPress}>
               <MenuCard title="로그아웃" sub="다른 계정으로 로그인" />

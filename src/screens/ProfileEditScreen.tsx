@@ -28,7 +28,7 @@ function withBirth(data: SurveyData, patch: Partial<Pick<SurveyData, 'birthYear'
 }
 
 const PLACES = ['집', '헬스장', '공원'];
-const GOALS = ['체중 감량', '체중 증량', '근력 강화', '자세 교정', '기초 체력 증진', '유연성 향상'];
+const GOALS = ['체중 감량', '체중 증량', '근력 강화', '자세 교정', '기초 체력 증진', '몸매 만들기'];
 
 function toggle(list: string[], value: string) {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];

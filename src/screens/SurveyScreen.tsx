@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
+  Dimensions,
   Image,
   type ImageStyle,
   KeyboardAvoidingView,
@@ -15,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '../components/AppText';
 import { ChoiceCard, ChoiceRow } from '../components/Choice';
+import { BackGlyph } from '../components/NavGlyph';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { ProgressBar } from '../components/ProgressBar';
 import { ageFromBirth, birthFieldsComplete, needsEquipment } from '../data/surveyBirth';
@@ -43,7 +45,7 @@ const GOALS = [
   { title: '근력 강화', subtitle: 'Muscle Gain' },
   { title: '자세 교정', subtitle: 'Postural Correction' },
   { title: '기초 체력 증진', subtitle: 'Stamina Boost' },
-  { title: '유연성 향상', subtitle: 'Flexibility' },
+  { title: '몸매 만들기', subtitle: 'Body Shape' },
 ];
 const CAUTIONS = [
   { title: '목', subtitle: 'Neck' },
@@ -65,6 +67,7 @@ function SurveyNumberField({
   onChangeText,
   onFocus,
   maxLength = 3,
+  compact = false,
   style,
 }: {
   label: string;
@@ -73,17 +76,18 @@ function SurveyNumberField({
   onChangeText: (text: string) => void;
   onFocus?: () => void;
   maxLength?: number;
+  compact?: boolean;
   style?: ViewStyle;
 }) {
   const input = useRef<TextInput>(null);
   return (
-    <Pressable onPress={() => input.current?.focus()} style={[styles.inputCard, style]}>
+    <Pressable onPress={() => input.current?.focus()} style={[styles.inputCard, compact && styles.inputCardCompact, style]}>
       <AppText variant="label" style={styles.label} pointerEvents="none">
         {label}
       </AppText>
       <TextInput
         ref={input}
-        style={styles.inputFill}
+        style={[styles.inputFill, compact && styles.inputFillCompact]}
         keyboardType="number-pad"
         placeholderTextColor={colors.gray}
         selectionColor={colors.navy}
@@ -93,7 +97,7 @@ function SurveyNumberField({
         onChangeText={onChangeText}
         onFocus={onFocus}
       />
-      <AppText style={styles.unit} pointerEvents="none">
+      <AppText style={[styles.unit, compact && styles.unitCompact]} pointerEvents="none">
         {unit}
       </AppText>
     </Pressable>
@@ -107,7 +111,7 @@ function withBirth(data: SurveyData, patch: Partial<Pick<SurveyData, 'birthYear'
 }
 
 export function SurveyScreen() {
-  const { saveSurvey, survey } = useApp();
+  const { saveSurvey, survey, go, onboarded } = useApp();
   const { top, bottom } = useAppInsets();
   const keyboardInset = useKeyboardInset();
   const scrollRef = useRef<ScrollView>(null);
@@ -139,29 +143,43 @@ export function SurveyScreen() {
     else setReadyOpen(true);
   };
 
-  const scrollGoalWeightIntoView = () => {
-    requestAnimationFrame(() => {
-      scrollRef.current?.scrollToEnd({ animated: true });
-    });
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+  const back = () => {
+    if (readyOpen) {
+      setReadyOpen(false);
+      return;
+    }
+    if (step > 0) {
+      setStep(step - 1);
+      return;
+    }
+    go(onboarded ? 'profile' : 'welcome');
   };
 
-  useEffect(() => {
-    if (keyboardInset > 0 && step === 0) {
-      scrollGoalWeightIntoView();
-    }
-  }, [keyboardInset, step]);
+  const scrollGoalWeightIntoView = () => {
+    // 끝까지 올리지 말고, 화면 높이의 약 절반 정도만 올려 목표 칸이 보이게
+    const y = Math.round(Dimensions.get('window').height * 0.42);
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y, animated: true });
+    });
+    setTimeout(() => scrollRef.current?.scrollTo({ y, animated: true }), 160);
+  };
 
   return (
     <SafeAreaView style={[styles.safe, { paddingTop: top + space[8] }]} edges={[]}>
-      <View style={styles.progressWrap}>
-        <ProgressBar
-          value={readyOpen ? 1 : (step + 1) / 6}
-          animateFrom={readyOpen ? 5 / 6 : step / 6}
-          useGradient
-          height={18}
-          trackColor="#B7C9D8"
-        />
+      <View style={styles.topBar}>
+        <Pressable style={styles.backBtn} onPress={back} hitSlop={12}>
+          <BackGlyph />
+        </Pressable>
+        <View style={styles.progressWrap}>
+          <ProgressBar
+            value={readyOpen ? 1 : (step + 1) / 6}
+            animateFrom={readyOpen ? 5 / 6 : step / 6}
+            useGradient
+            height={18}
+            trackColor="#B7C9D8"
+          />
+        </View>
+        <View style={styles.backBtn} />
       </View>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -193,6 +211,7 @@ export function SurveyScreen() {
                   unit="년"
                   value={data.birthYear}
                   maxLength={4}
+                  compact
                   onChangeText={(birthYear) => setData(withBirth(data, { birthYear: birthYear.replace(/\D/g, '') }))}
                   style={styles.birthYear}
                 />
@@ -201,6 +220,7 @@ export function SurveyScreen() {
                   unit="월"
                   value={data.birthMonth}
                   maxLength={2}
+                  compact
                   onChangeText={(birthMonth) => setData(withBirth(data, { birthMonth: birthMonth.replace(/\D/g, '') }))}
                   style={styles.birthPart}
                 />
@@ -209,6 +229,7 @@ export function SurveyScreen() {
                   unit="일"
                   value={data.birthDay}
                   maxLength={2}
+                  compact
                   onChangeText={(birthDay) => setData(withBirth(data, { birthDay: birthDay.replace(/\D/g, '') }))}
                   style={styles.birthPart}
                 />
@@ -481,8 +502,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: layout.screen,
     position: 'relative',
   },
-  content: { paddingTop: space[20], gap: space[12] },
-  progressWrap: { marginBottom: space[8] },
+  content: { paddingTop: space[16], gap: space[12] },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[8],
+    marginBottom: space[8],
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressWrap: { flex: 1 },
   genderRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'stretch', gap: space[12] },
   genderCard: { flexGrow: 1, flexBasis: 0, minHeight: 64, justifyContent: 'center' },
   sub: { color: 'rgba(90,90,90,0.8)', marginBottom: space[8] },
@@ -498,8 +531,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...(Platform.OS === 'web' ? ({ cursor: 'text' } as unknown as ViewStyle) : null),
   },
+  inputCardCompact: {
+    paddingHorizontal: space[12],
+    paddingVertical: space[16],
+    minHeight: 88,
+  },
   half: { flex: 1 },
-  birthYear: { flex: 1.35 },
+  birthYear: { flex: 1.55 },
   birthPart: { flex: 1 },
   label: { color: colors.navyInk, zIndex: 1 },
   inputFill: {
@@ -514,6 +552,14 @@ const styles = StyleSheet.create({
     ...(Platform.OS === 'android' ? { includeFontPadding: false, textAlignVertical: 'bottom' } : null),
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null),
   },
+  inputFillCompact: {
+    paddingHorizontal: space[12],
+    paddingTop: 36,
+    paddingBottom: 14,
+    paddingRight: 34,
+    fontSize: 22,
+    letterSpacing: 0.5,
+  },
   unit: {
     alignSelf: 'flex-end',
     color: colors.navy,
@@ -521,6 +567,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     zIndex: 1,
+  },
+  unitCompact: {
+    fontSize: 14,
+    lineHeight: 18,
   },
   row: { flexDirection: 'row', gap: space[12] },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space[12] },
