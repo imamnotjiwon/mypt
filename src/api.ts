@@ -43,9 +43,10 @@ export async function initApiBase() {
   } catch {
     /* keep baked URL */
   }
+  // 캐시가 있으면 즉시 쓰고, 원격 설정은 짧게만 시도 (느린 터널에서 부팅 지연 방지)
   try {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 4000);
+    const timer = setTimeout(() => ctrl.abort(), 1200);
     const res = await fetch(`${REMOTE_CONFIG}?t=${Date.now()}`, { signal: ctrl.signal });
     clearTimeout(timer);
     const data = (await res.json()) as { apiUrl?: string };

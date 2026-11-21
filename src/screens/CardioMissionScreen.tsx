@@ -131,17 +131,23 @@ export function CardioMissionScreen() {
         <View style={{ marginTop: space[12] }}>
           <MissionSummaryCard
             iconSrc={
-              /자전거/.test(title)
-                ? require('../../assets/ui/icon-cycle.png')
-                : /걷기/.test(title)
-                  ? require('../../assets/ui/icon-walk.png')
-                  : /계단/.test(title)
-                    ? require('../../assets/ui/icon-stairs.png')
-                    : /요가|스트레칭|폼롤러/.test(title)
-                      ? require('../../assets/ui/icon-stretch.png')
-                      : /플랭크/.test(title)
-                        ? require('../../assets/ui/icon-plank.png')
-                        : require('../../assets/ui/icon-run.png')
+              /런닝머신/.test(title)
+                ? require('../../assets/ui/icon-treadmill.png')
+                : /자전거/.test(title)
+                  ? require('../../assets/ui/icon-cycle.png')
+                  : /걷기/.test(title)
+                    ? require('../../assets/ui/icon-walk.png')
+                    : /계단/.test(title)
+                      ? require('../../assets/ui/icon-stairs.png')
+                      : /요가/.test(title)
+                        ? require('../../assets/ui/icon-yoga.png')
+                        : /폼롤러/.test(title)
+                          ? require('../../assets/ui/icon-foamroller.png')
+                          : /스트레칭/.test(title)
+                            ? require('../../assets/ui/icon-stretch.png')
+                            : /플랭크/.test(title)
+                              ? require('../../assets/ui/icon-plank.png')
+                              : require('../../assets/ui/icon-run.png')
             }
             taskLabel={mission.title}
             statusLabel={mission.done || done ? '완료' : elapsedMs > 0 ? '진행중' : '대기'}

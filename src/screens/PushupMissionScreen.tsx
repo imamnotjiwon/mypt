@@ -67,11 +67,27 @@ export function PushupMissionScreen() {
         <View style={{ marginTop: space[12] }}>
           <MissionSummaryCard
             iconSrc={
-              /스쿼트|런지|레그/.test(title)
-                ? require('../../assets/ui/icon-squat.png')
-                : /푸쉬업|버피/.test(title)
-                  ? require('../../assets/ui/icon-pushup.png')
-                  : require('../../assets/ui/icon-lift.png')
+              /랫풀/.test(title)
+                ? require('../../assets/ui/icon-latpulldown.png')
+                : /벤치/.test(title)
+                  ? require('../../assets/ui/icon-bench.png')
+                  : /데드/.test(title)
+                    ? require('../../assets/ui/icon-deadlift.png')
+                    : /레그프레스/.test(title)
+                      ? require('../../assets/ui/icon-legpress.png')
+                      : /런지/.test(title)
+                        ? require('../../assets/ui/icon-lunge.png')
+                        : /버피/.test(title)
+                          ? require('../../assets/ui/icon-burpee.png')
+                          : /스쿼트/.test(title)
+                            ? require('../../assets/ui/icon-squat.png')
+                            : /푸쉬업/.test(title)
+                              ? require('../../assets/ui/icon-pushup.png')
+                              : /덤벨|숄더|프레스/.test(title)
+                                ? require('../../assets/ui/icon-shoulderpress.png')
+                                : /밴드|로우/.test(title)
+                                  ? require('../../assets/ui/icon-bandrow.png')
+                                  : require('../../assets/ui/icon-lift.png')
             }
             taskLabel={mission.title}
             statusLabel={mission.done || done ? '완료' : current > 0 ? '진행중' : '대기'}

@@ -1,90 +1,131 @@
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { ActivityIndicator, Platform, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider, useApp } from './src/store/AppProvider';
-import { LoginScreen } from './src/screens/LoginScreen';
-import { SignupScreen } from './src/screens/SignupScreen';
-import { FindPasswordScreen } from './src/screens/FindPasswordScreen';
-import { WelcomeScreen } from './src/screens/WelcomeScreen';
-import { SurveyScreen } from './src/screens/SurveyScreen';
-import { CharacterSelectScreen } from './src/screens/CharacterSelectScreen';
-import { RoutineReadyScreen } from './src/screens/RoutineReadyScreen';
-import { HomeScreen } from './src/screens/HomeScreen';
-import { PushupMissionScreen } from './src/screens/PushupMissionScreen';
-import { CardioMissionScreen } from './src/screens/CardioMissionScreen';
-import { QuestScreen } from './src/screens/QuestScreen';
-import { ExerciseScreen } from './src/screens/ExerciseScreen';
-import { ShopScreen } from './src/screens/ShopScreen';
-import { CommunityScreen } from './src/screens/CommunityScreen';
-import { ProfileScreen } from './src/screens/ProfileScreen';
-import { ProfileEditScreen } from './src/screens/ProfileEditScreen';
-import { FriendsScreen } from './src/screens/FriendsScreen';
-import { DexScreen } from './src/screens/DexScreen';
-import { ChatScreen } from './src/screens/ChatScreen';
-import { CoinShopScreen } from './src/screens/CoinShopScreen';
 import { PhoneShell } from './src/components/PhoneShell';
 import { colors } from './src/theme';
 import { useAppFonts } from './src/fonts';
+
+// 자주 쓰는 화면만 즉시 로드 — 나머지는 열 때 로드해서 첫 진입을 빠르게
+import { LoginScreen } from './src/screens/LoginScreen';
+import { HomeScreen } from './src/screens/HomeScreen';
+
+const SignupScreen = lazy(() => import('./src/screens/SignupScreen').then((m) => ({ default: m.SignupScreen })));
+const FindPasswordScreen = lazy(() =>
+  import('./src/screens/FindPasswordScreen').then((m) => ({ default: m.FindPasswordScreen })),
+);
+const WelcomeScreen = lazy(() => import('./src/screens/WelcomeScreen').then((m) => ({ default: m.WelcomeScreen })));
+const SurveyScreen = lazy(() => import('./src/screens/SurveyScreen').then((m) => ({ default: m.SurveyScreen })));
+const CharacterSelectScreen = lazy(() =>
+  import('./src/screens/CharacterSelectScreen').then((m) => ({ default: m.CharacterSelectScreen })),
+);
+const RoutineReadyScreen = lazy(() =>
+  import('./src/screens/RoutineReadyScreen').then((m) => ({ default: m.RoutineReadyScreen })),
+);
+const PushupMissionScreen = lazy(() =>
+  import('./src/screens/PushupMissionScreen').then((m) => ({ default: m.PushupMissionScreen })),
+);
+const CardioMissionScreen = lazy(() =>
+  import('./src/screens/CardioMissionScreen').then((m) => ({ default: m.CardioMissionScreen })),
+);
+const QuestScreen = lazy(() => import('./src/screens/QuestScreen').then((m) => ({ default: m.QuestScreen })));
+const ExerciseScreen = lazy(() => import('./src/screens/ExerciseScreen').then((m) => ({ default: m.ExerciseScreen })));
+const ShopScreen = lazy(() => import('./src/screens/ShopScreen').then((m) => ({ default: m.ShopScreen })));
+const CommunityScreen = lazy(() =>
+  import('./src/screens/CommunityScreen').then((m) => ({ default: m.CommunityScreen })),
+);
+const ProfileScreen = lazy(() => import('./src/screens/ProfileScreen').then((m) => ({ default: m.ProfileScreen })));
+const ProfileEditScreen = lazy(() =>
+  import('./src/screens/ProfileEditScreen').then((m) => ({ default: m.ProfileEditScreen })),
+);
+const FriendsScreen = lazy(() => import('./src/screens/FriendsScreen').then((m) => ({ default: m.FriendsScreen })));
+const DexScreen = lazy(() => import('./src/screens/DexScreen').then((m) => ({ default: m.DexScreen })));
+const ChatScreen = lazy(() => import('./src/screens/ChatScreen').then((m) => ({ default: m.ChatScreen })));
+const CoinShopScreen = lazy(() => import('./src/screens/CoinShopScreen').then((m) => ({ default: m.CoinShopScreen })));
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync().catch(() => undefined);
 }
 
+function BootFallback() {
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white }}>
+      <ActivityIndicator color={colors.navy} />
+    </View>
+  );
+}
+
 function Root() {
   const { screen, ready } = useApp();
 
-  if (!ready) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white }}>
-        <ActivityIndicator color={colors.navy} />
-      </View>
-    );
-  }
+  if (!ready) return <BootFallback />;
 
+  let body;
   switch (screen) {
     case 'login':
-      return <LoginScreen />;
+      body = <LoginScreen />;
+      break;
     case 'signup':
-      return <SignupScreen />;
+      body = <SignupScreen />;
+      break;
     case 'findPassword':
-      return <FindPasswordScreen />;
+      body = <FindPasswordScreen />;
+      break;
     case 'welcome':
-      return <WelcomeScreen />;
+      body = <WelcomeScreen />;
+      break;
     case 'survey':
-      return <SurveyScreen />;
+      body = <SurveyScreen />;
+      break;
     case 'character':
-      return <CharacterSelectScreen />;
+      body = <CharacterSelectScreen />;
+      break;
     case 'routine':
-      return <RoutineReadyScreen />;
+      body = <RoutineReadyScreen />;
+      break;
     case 'pushup':
-      return <PushupMissionScreen />;
+      body = <PushupMissionScreen />;
+      break;
     case 'cardio':
-      return <CardioMissionScreen />;
+      body = <CardioMissionScreen />;
+      break;
     case 'quest':
-      return <QuestScreen />;
+      body = <QuestScreen />;
+      break;
     case 'exercise':
-      return <ExerciseScreen />;
+      body = <ExerciseScreen />;
+      break;
     case 'shop':
-      return <ShopScreen />;
+      body = <ShopScreen />;
+      break;
     case 'community':
-      return <CommunityScreen />;
+      body = <CommunityScreen />;
+      break;
     case 'profile':
-      return <ProfileScreen />;
+      body = <ProfileScreen />;
+      break;
     case 'profileEdit':
-      return <ProfileEditScreen />;
+      body = <ProfileEditScreen />;
+      break;
     case 'friends':
-      return <FriendsScreen />;
+      body = <FriendsScreen />;
+      break;
     case 'dex':
-      return <DexScreen />;
+      body = <DexScreen />;
+      break;
     case 'chat':
-      return <ChatScreen />;
+      body = <ChatScreen />;
+      break;
     case 'coinShop':
-      return <CoinShopScreen />;
+      body = <CoinShopScreen />;
+      break;
     default:
-      return <HomeScreen />;
+      body = <HomeScreen />;
   }
+
+  return <Suspense fallback={<BootFallback />}>{body}</Suspense>;
 }
 
 export default function App() {
@@ -99,9 +140,7 @@ export default function App() {
   if (!fontsLoaded) {
     return (
       <PhoneShell>
-        <View style={{ flex: 1, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={colors.navy} />
-        </View>
+        <BootFallback />
       </PhoneShell>
     );
   }

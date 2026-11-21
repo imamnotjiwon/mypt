@@ -232,31 +232,66 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    api
-      .initApiBase()
-      .then(() => AsyncStorage.getItem(STORAGE_KEY))
-      .then(async (raw) => {
-        if (!raw) return;
+    let cancelled = false;
+    (async () => {
+      await api.initApiBase();
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      if (cancelled) return;
+      if (!raw) {
+        setReady(true);
+        return;
+      }
+      try {
         const saved = JSON.parse(raw);
         const savedToken = typeof saved.token === 'string' ? saved.token : '';
-        if (!savedToken) return;
+        if (!savedToken) {
+          setReady(true);
+          return;
+        }
+        // 로컬 스냅샷으로 먼저 화면을 띄운 뒤 서버 동기화 (첫 로딩 체감 단축)
+        setToken(savedToken);
+        if (typeof saved.nickname === 'string') setNickname(saved.nickname);
+        if (typeof saved.coins === 'number') setCoins(saved.coins);
+        if (typeof saved.level === 'number') setLevel(saved.level);
+        if (typeof saved.xp === 'number') setXp(saved.xp);
+        if (typeof saved.streakDays === 'number') setStreakDays(saved.streakDays);
+        if (typeof saved.characterId === 'string') setCharacterId(asCharacterId(saved.characterId));
+        if (typeof saved.onboarded === 'boolean') setOnboarded(saved.onboarded);
+        if (saved.survey) setSurvey({ ...defaultSurvey, ...saved.survey });
+        if (Array.isArray(saved.missions)) setMissions(saved.missions);
+        if (typeof saved.missionsDate === 'string') setMissionsDate(saved.missionsDate);
+        if (Array.isArray(saved.workoutLogs)) setWorkoutLogs(saved.workoutLogs.filter(isWorkoutDay));
+        if (typeof saved.streakDate === 'string') setStreakDate(saved.streakDate);
+        if (Array.isArray(saved.ownedItems)) setOwnedItems(saved.ownedItems);
+        if (typeof saved.equippedItem === 'string') setEquippedItem(saved.equippedItem);
+        if (typeof saved.weeklyBonusWeek === 'string') setWeeklyBonusWeek(saved.weeklyBonusWeek);
+        if (saved.previousTab) setPreviousTab(saved.previousTab);
+        const nextScreen = saved.screen as ScreenName | undefined;
+        if (nextScreen && !AUTH_SCREENS.includes(nextScreen) && !OVERLAY_SCREENS.includes(nextScreen)) {
+          setScreen(nextScreen);
+        } else if (saved.onboarded) {
+          setScreen('home');
+        }
+        setReady(true);
         try {
           const { user } = await api.getMe(savedToken);
-          setToken(savedToken);
+          if (cancelled) return;
           hydrate(user, typeof saved.missionsDate === 'string' ? saved.missionsDate : '');
-          const nextScreen = saved.screen as ScreenName | undefined;
-          if (nextScreen && !AUTH_SCREENS.includes(nextScreen) && !OVERLAY_SCREENS.includes(nextScreen)) {
-            setScreen(nextScreen);
-          } else {
+          if (!nextScreen || AUTH_SCREENS.includes(nextScreen) || OVERLAY_SCREENS.includes(nextScreen)) {
             setScreen(user.onboarded ? 'home' : 'welcome');
           }
-          if (saved.previousTab) setPreviousTab(saved.previousTab);
         } catch {
+          if (cancelled) return;
           setToken(null);
           setScreen('login');
         }
-      })
-      .finally(() => setReady(true));
+      } catch {
+        setReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
