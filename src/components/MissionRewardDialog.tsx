@@ -1,6 +1,7 @@
 import { Image, ImageSourcePropType, StyleSheet, View } from 'react-native';
 import { AppText } from './AppText';
 import { FallingParticles } from './FallingParticles';
+import { CoinMark } from './Marks';
 import { PrimaryButton } from './PrimaryButton';
 import { ProgressBar } from './ProgressBar';
 import { useAppInsets } from '../hooks/useAppInsets';
@@ -54,7 +55,7 @@ export function MissionRewardDialog({
         <View style={styles.rewards}>
           <View style={styles.reward}>
             <View style={styles.rewardIconWrap}>
-              <Image source={require('../../assets/ui/reward-coin.png')} style={styles.rewardIcon} resizeMode="cover" />
+              <CoinMark size={28} />
             </View>
             <AppText style={styles.rewardVal}>+{coinReward}</AppText>
             <AppText variant="caption" style={styles.muted}>
