@@ -531,13 +531,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...(Platform.OS === 'web' ? ({ cursor: 'text' } as unknown as ViewStyle) : null),
   },
+  // 기존 입력칸에서 조금만 줄여 4자리 년이 안 잘리게
   inputCardCompact: {
-    paddingHorizontal: space[12],
-    paddingVertical: space[16],
-    minHeight: 88,
+    paddingHorizontal: space[16],
+    paddingVertical: space[20],
+    minHeight: 92,
   },
   half: { flex: 1 },
-  birthYear: { flex: 1.55 },
+  birthYear: { flex: 1.5 },
   birthPart: { flex: 1 },
   label: { color: colors.navyInk, zIndex: 1 },
   inputFill: {
@@ -553,12 +554,11 @@ const styles = StyleSheet.create({
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null),
   },
   inputFillCompact: {
-    paddingHorizontal: space[12],
-    paddingTop: 36,
-    paddingBottom: 14,
-    paddingRight: 34,
-    fontSize: 22,
-    letterSpacing: 0.5,
+    paddingHorizontal: space[16],
+    paddingTop: 40,
+    paddingBottom: 16,
+    paddingRight: 42,
+    fontSize: 24,
   },
   unit: {
     alignSelf: 'flex-end',
@@ -569,8 +569,8 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   unitCompact: {
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 15,
+    lineHeight: 20,
   },
   row: { flexDirection: 'row', gap: space[12] },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space[12] },

@@ -437,7 +437,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setSurvey(next);
         setMissions(pickDailyMissions(next, `${userId || 'guest'}-${key}`));
         setMissionsDate(key);
-        setScreen(onboarded ? 'profile' : 'character');
+        // 프로토타입: 프로필에서 설문 다시 해도 캐릭터 선택 → 루틴 흐름을 다시 탐
+        setScreen('character');
       },
       updateProfile: async ({ nickname: nextName, survey: nextSurvey }) => {
         if (!token) throw new Error('로그인이 필요해요.');

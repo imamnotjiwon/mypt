@@ -34,14 +34,20 @@ export function ScreenHeader({
   // 고양이 헤드 크롭이 타이트해서 얼굴을 조금 줄여 원 안에 맞춤
   const headFit = character.id === 'cat' ? 0.62 : 0.78;
   const headSize = Math.round(layout.avatar * headFit);
-  const headNudge = Math.round(headSize * (character.nudgeX ?? 0));
+  const headNudgeX = Math.round(headSize * (character.nudgeX ?? 0));
+  // 강아지 등 흰 원 안에서 얼굴이 아래로 치우쳐 보여 살짝 올림
+  const headNudgeY = character.id === 'dog' ? -4 : character.id === 'cat' ? -2 : -2;
   return (
     <View style={[styles.row, { paddingTop: top, paddingBottom: compact ? space[8] : space[16] }]}>
       <Pressable style={styles.profile} onPress={onPressProfile} hitSlop={12}>
         <View style={styles.avatar}>
           <Image
             source={character.head}
-            style={{ width: headSize, height: headSize, transform: [{ translateX: headNudge }] }}
+            style={{
+              width: headSize,
+              height: headSize,
+              transform: [{ translateX: headNudgeX }, { translateY: headNudgeY }],
+            }}
             resizeMode="contain"
           />
         </View>

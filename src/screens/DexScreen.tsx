@@ -11,10 +11,8 @@ import { useApp } from '../store/AppProvider';
 import { colors, font, layout, space } from '../theme';
 
 const CHAR_PRICE = 1000;
-/** 로그인 마퀴 타일(~frame/2)에 가까운 비율 */
-const HERO_W = 148;
-const HERO_H = 184;
-const CELL_IMG = 44;
+const HERO_W = 200;
+const HERO_H = 236;
 
 export function DexScreen() {
   const { go, characterId, setCharacter, ownedItems, buyItem, coins, openCoinShop } = useApp();
@@ -135,7 +133,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'transparent',
   },
-  heroBlock: { alignItems: 'center', paddingTop: space[12], paddingBottom: space[4] },
+  heroBlock: { alignItems: 'center', paddingTop: space[20], paddingBottom: space[8] },
   badge: {
     backgroundColor: colors.sky,
     borderRadius: 34,
@@ -195,7 +193,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cellOn: { borderColor: colors.navy, borderWidth: 2 },
-  cellImg: { width: CELL_IMG, height: CELL_IMG },
+  cellImg: { width: 66, height: 66 },
   cellImgLocked: { opacity: 0.35 },
   lock: { position: 'absolute', width: 22, height: 22, tintColor: '#5A5A5A' },
   cta: { marginTop: 'auto', paddingBottom: space[12], paddingHorizontal: 0 },
