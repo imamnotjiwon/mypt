@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: space[16],
   },
-  waterIcon: { width: 30, height: 38 },
+  waterIcon: { width: 24, height: 30 },
   sub: { color: colors.gray, marginTop: space[4] },
   amount: { color: colors.navy, marginTop: space[16], fontFamily: font.bold },
   row: { flexDirection: 'row', gap: space[8], marginTop: space[24], width: '100%' },

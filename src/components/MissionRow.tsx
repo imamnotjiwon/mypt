@@ -32,6 +32,7 @@ type Props = {
 export function MissionRow({ mission, onPress, showBadge = true }: Props) {
   const raster = ICONS[mission.icon ?? ''] ?? ICONS[mission.id] ?? ICONS.cardio;
   const ratio = mission.done ? 1 : mission.current / mission.goal;
+  const isWater = mission.id === 'water' || mission.icon === 'water' || ('kind' in mission && mission.kind === 'water');
   return (
     <Pressable
       style={({ pressed }) => [styles.mission, pressed && styles.pressed]}
@@ -40,7 +41,11 @@ export function MissionRow({ mission, onPress, showBadge = true }: Props) {
       hitSlop={6}
     >
       <View style={styles.missionIcon}>
-        <Image source={raster} style={styles.missionGlyph} resizeMode="contain" />
+        <Image
+          source={raster}
+          style={[styles.missionGlyph, isWater && styles.waterGlyph]}
+          resizeMode="contain"
+        />
         {showBadge ? (
           <Image
             source={mission.done ? require('../../assets/ui/icon-check.png') : require('../../assets/ui/plus-circle.png')}
@@ -89,6 +94,7 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   missionGlyph: { width: 28, height: 28 },
+  waterGlyph: { width: 22, height: 26 },
   badgeImg: { position: 'absolute', top: -2, right: -2, width: 14, height: 14, borderRadius: 7 },
   missionTitle: { fontFamily: font.bold },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

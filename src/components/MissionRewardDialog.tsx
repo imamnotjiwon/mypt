@@ -3,6 +3,7 @@ import { AppText } from './AppText';
 import { FallingParticles } from './FallingParticles';
 import { PrimaryButton } from './PrimaryButton';
 import { ProgressBar } from './ProgressBar';
+import { useAppInsets } from '../hooks/useAppInsets';
 import { colors, font, layout, radius, space } from '../theme';
 
 type Props = {
@@ -32,22 +33,23 @@ export function MissionRewardDialog({
   sub = '오늘도 한 걸음 성장했어요!',
   onConfirm,
 }: Props) {
+  const { top, bottom } = useAppInsets();
   const fromXp = xpAlreadyApplied ? Math.max(0, currentXp - xpReward) : currentXp;
   const toXp = xpAlreadyApplied ? currentXp : Math.min(maxXp, currentXp + xpReward);
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { paddingTop: top + space[24], paddingBottom: bottom + space[16] }]}>
       <FallingParticles />
-      <AppText variant="caption" style={styles.kicker}>
-        {kicker}
-      </AppText>
-      <AppText variant="title" style={styles.title}>
-        {title}
-      </AppText>
-      <AppText variant="body" style={styles.sub}>
-        {sub}
-      </AppText>
-      <Image source={character} style={styles.hero} resizeMode="contain" />
+      <View style={styles.header}>
+        <AppText variant="caption" style={styles.kicker}>
+          {kicker}
+        </AppText>
+        <AppText style={styles.title}>{title}</AppText>
+        <AppText style={styles.sub}>{sub}</AppText>
+      </View>
+      <View style={styles.heroWrap}>
+        <Image source={character} style={styles.hero} resizeMode="contain" />
+      </View>
       <View style={styles.bottom}>
         <View style={styles.rewards}>
           <View style={styles.reward}>
@@ -80,7 +82,9 @@ export function MissionRewardDialog({
           </View>
           <ProgressBar value={toXp / maxXp} animateFrom={fromXp / maxXp} useGradient />
         </View>
-        <PrimaryButton label="돌아가기" onPress={onConfirm} />
+        <View style={styles.ctaGap}>
+          <PrimaryButton label="돌아가기" onPress={onConfirm} />
+        </View>
       </View>
     </View>
   );
@@ -91,18 +95,22 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     backgroundColor: '#EAF4FF',
     paddingHorizontal: layout.screen,
-    paddingTop: 60,
     alignItems: 'center',
     zIndex: 30,
   },
-  kicker: { color: colors.teal, fontFamily: font.bold },
+  header: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: space[12],
+  },
+  kicker: { color: colors.teal, fontFamily: font.bold, fontSize: 13, lineHeight: 18 },
   title: {
     textAlign: 'center',
     color: colors.navyDeep,
-    marginTop: space[8],
+    marginTop: space[10],
     fontFamily: font.extraBold,
-    fontSize: 30,
-    lineHeight: 38,
+    fontSize: 36,
+    lineHeight: 44,
   },
   sub: {
     textAlign: 'center',
@@ -112,15 +120,20 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 26,
   },
-  hero: {
-    width: '68%',
-    maxWidth: 220,
-    flexGrow: 0,
-    flexShrink: 1,
-    height: 200,
-    maxHeight: 220,
-    marginTop: space[12],
+  heroWrap: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 220,
+    marginTop: space[8],
     marginBottom: space[8],
+  },
+  hero: {
+    width: '92%',
+    maxWidth: 300,
+    height: '100%',
+    maxHeight: 300,
   },
   rewards: { flexDirection: 'row', gap: space[8], width: '100%' },
   reward: {
@@ -153,10 +166,11 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between' },
   levelTxt: { fontFamily: font.bold },
   bottom: {
-    marginTop: 'auto',
     width: '100%',
-    paddingBottom: space[24],
-    paddingTop: space[12],
     gap: space[12],
+  },
+  ctaGap: {
+    marginTop: space[12],
+    paddingTop: space[8],
   },
 });

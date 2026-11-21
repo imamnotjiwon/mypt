@@ -468,7 +468,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
       selectCharacter: (id) => {
         setCharacterId(id);
-        setOwnedItems((prev) => (prev.includes(id) ? prev : [...prev, id]));
+        // 설문/온보딩에서 고른 캐릭터만 기본 보유. 나머지는 도감에서 구매.
+        setOwnedItems((prev) => {
+          const nonCharacters = prev.filter((item) => !CHARACTER_IDS.includes(item as CharacterId));
+          return [...nonCharacters, id];
+        });
         setScreen('routine');
       },
       finishOnboarding: () => {
