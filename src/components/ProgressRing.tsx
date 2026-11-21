@@ -66,7 +66,7 @@ export function ProgressRing({
   return (
     <View style={styles.host}>
       <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-        <Svg width={size} height={size} style={StyleSheet.absoluteFillObject}>
+        <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
           <Circle
             cx={center}
             cy={center}
