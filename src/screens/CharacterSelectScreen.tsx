@@ -39,7 +39,7 @@ export function CharacterSelectScreen() {
     <LinearGradient colors={['#C4DFFC', '#E5F1FD', '#FFFFFF']} locations={[0, 0.42, 1]} style={{ flex: 1 }}>
       <SafeAreaView style={styles.safe} edges={[]}>
         <View style={styles.progressWrap}>
-          <PercentRing progress={progress} />
+          <PercentRing progress={progress} size={120} stroke={10} />
           <AppText variant="body" style={styles.making}>
             {done ? '맞춤 루틴이 완성됐어요!' : '맞춤 루틴 만드는 중...'}
           </AppText>
@@ -70,17 +70,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: layout.screen,
     paddingTop: (Platform.OS === 'web' ? STATUS_BAR_HEIGHT : space[8]) + space[12],
   },
-  progressWrap: { alignItems: 'center', marginTop: space[24] },
-  making: { marginTop: space[12], color: colors.black, textAlign: 'center' },
+  progressWrap: { alignItems: 'center', marginTop: 44, marginBottom: space[8] },
+  making: { marginTop: space[8], color: colors.black, textAlign: 'center' },
   title: {
-    marginTop: space[16],
+    marginTop: space[12],
     textAlign: 'center',
     fontFamily: font.extraBold,
     fontSize: 24,
     lineHeight: 32,
     color: colors.navy,
   },
-  sub: { textAlign: 'center', color: colors.muted, marginTop: space[8], marginBottom: space[8] },
+  sub: { textAlign: 'center', color: colors.muted, marginTop: space[8], marginBottom: space[4] },
   stage: {
     flex: 1,
     justifyContent: 'flex-end',

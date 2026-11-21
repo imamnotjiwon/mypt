@@ -94,11 +94,19 @@ export function ProgressRing({
   );
 }
 
-export function PercentRing({ progress }: { progress: number }) {
+export function PercentRing({
+  progress,
+  size = 140,
+  stroke = 12,
+}: {
+  progress: number;
+  size?: number;
+  stroke?: number;
+}) {
   const pct = Math.min(1, Math.max(0, progress));
   return (
-    <ProgressRing progress={pct} size={200} stroke={16} animate>
-      <AppText style={styles.percent}>{Math.round(pct * 100)}%</AppText>
+    <ProgressRing progress={pct} size={size} stroke={stroke} animate>
+      <AppText style={[styles.percent, size < 160 && styles.percentSm]}>{Math.round(pct * 100)}%</AppText>
     </ProgressRing>
   );
 }
@@ -119,5 +127,9 @@ const styles = StyleSheet.create({
     fontSize: 32,
     lineHeight: 40,
     color: colors.black,
+  },
+  percentSm: {
+    fontSize: 24,
+    lineHeight: 30,
   },
 });

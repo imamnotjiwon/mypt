@@ -67,8 +67,8 @@ export function CharacterCarousel({ index, onIndexChange }: Props) {
   indexRef.current = index;
   onChangeRef.current = onIndexChange;
 
-  const cellW = Math.round(156 * s);
-  const gap = Math.round(18 * s);
+  const cellW = Math.round(148 * s);
+  const gap = Math.round(36 * s);
   const stride = cellW + gap;
   const sidePad = Math.max(0, (screenW - cellW) / 2);
 

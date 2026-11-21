@@ -1,9 +1,10 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   Image,
   type ImageStyle,
   KeyboardAvoidingView,
+  LayoutChangeEvent,
   Platform,
   Pressable,
   ScrollView,
@@ -115,6 +116,7 @@ export function SurveyScreen() {
   const { top, bottom } = useAppInsets();
   const keyboardInset = useKeyboardInset();
   const scrollRef = useRef<ScrollView>(null);
+  const sectionY = useRef<Record<string, number>>({});
   const [step, setStep] = useState(0);
   const [data, setData] = useState<SurveyData>({
     ...survey,
@@ -125,6 +127,46 @@ export function SurveyScreen() {
   });
   const [readyOpen, setReadyOpen] = useState(false);
   const askEquipment = needsEquipment(data.places);
+
+  const markSection = (key: string) => (e: LayoutChangeEvent) => {
+    sectionY.current[key] = e.nativeEvent.layout.y;
+  };
+
+  const scrollToSection = (key: string, pad = 16) => {
+    const y = sectionY.current[key];
+    if (y == null) {
+      // 레이아웃이 아직이면 살짝 기다렸다가 끝으로
+      requestAnimationFrame(() => {
+        const nextY = sectionY.current[key];
+        if (nextY != null) scrollRef.current?.scrollTo({ y: Math.max(0, nextY - pad), animated: true });
+        else scrollRef.current?.scrollToEnd({ animated: true });
+      });
+      return;
+    }
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - pad), animated: true });
+  };
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [step]);
+
+  useEffect(() => {
+    if (!askEquipment) return;
+    const t = setTimeout(() => scrollToSection('equipment'), 80);
+    return () => clearTimeout(t);
+  }, [askEquipment]);
+
+  useEffect(() => {
+    if (!data.goal) return;
+    const t = setTimeout(() => scrollToSection('frequency'), 80);
+    return () => clearTimeout(t);
+  }, [data.goal]);
+
+  useEffect(() => {
+    if (!data.frequency) return;
+    const t = setTimeout(() => scrollToSection('weekdays'), 80);
+    return () => clearTimeout(t);
+  }, [data.frequency]);
 
   const canNext =
     (step === 0 &&
@@ -257,12 +299,13 @@ export function SurveyScreen() {
                   onPress={() => setData({ ...data, gender: 'female' })}
                 />
               </View>
-              <View style={styles.row}>
+              <View style={styles.row} onLayout={markSection('body')}>
                 <SurveyNumberField
                   label="키"
                   unit="cm"
                   value={data.height}
                   onChangeText={(height) => setData({ ...data, height })}
+                  onFocus={() => scrollToSection('body', 8)}
                   style={styles.half}
                 />
                 <SurveyNumberField
@@ -270,17 +313,27 @@ export function SurveyScreen() {
                   unit="kg"
                   value={data.weight}
                   onChangeText={(weight) => setData({ ...data, weight })}
+                  onFocus={() => {
+                    scrollToSection('body', 8);
+                    // 몸무게 입력 후 목표 칸이 보이도록 한 번 더
+                    setTimeout(() => scrollGoalWeightIntoView(), 120);
+                  }}
                   style={styles.half}
                 />
               </View>
-              <AppText variant="title">달성하고 싶은 목표 몸무게가 있나요?</AppText>
-              <SurveyNumberField
-                label="목표"
-                unit="kg"
-                value={data.goalWeight}
-                onChangeText={(goalWeight) => setData({ ...data, goalWeight })}
-                onFocus={scrollGoalWeightIntoView}
-              />
+              <View onLayout={markSection('goalWeight')}>
+                <AppText variant="title">달성하고 싶은 목표 몸무게가 있나요?</AppText>
+                <SurveyNumberField
+                  label="목표"
+                  unit="kg"
+                  value={data.goalWeight}
+                  onChangeText={(goalWeight) => setData({ ...data, goalWeight })}
+                  onFocus={() => {
+                    scrollToSection('goalWeight', 8);
+                    scrollGoalWeightIntoView();
+                  }}
+                />
+              </View>
             </>
           )}
 
@@ -309,7 +362,7 @@ export function SurveyScreen() {
                 />
               ))}
               {askEquipment ? (
-                <>
+                <View onLayout={markSection('equipment')}>
                   <AppText variant="title" style={{ marginTop: space[24] }}>
                     사용 가능한 운동 기구를 알려주세요.
                   </AppText>
@@ -327,7 +380,7 @@ export function SurveyScreen() {
                       />
                     ))}
                   </View>
-                </>
+                </View>
               ) : data.places.length > 0 ? (
                 <AppText variant="caption" style={styles.skipHint}>
                   헬스장·공원 선택이므로 기구 선택은 건너뛰고 다음으로 갈 수 있어요.
@@ -352,7 +405,7 @@ export function SurveyScreen() {
                 ))}
               </View>
               {data.goal ? (
-                <>
+                <View onLayout={markSection('frequency')}>
                   <AppText variant="title" style={{ marginTop: space[20] }}>
                     일주일에 몇 번 운동 하시나요?
                   </AppText>
@@ -371,10 +424,10 @@ export function SurveyScreen() {
                       }
                     />
                   ))}
-                </>
+                </View>
               ) : null}
               {data.frequency ? (
-                <>
+                <View onLayout={markSection('weekdays')}>
                   <AppText variant="title" style={{ marginTop: space[20] }}>
                     운동할 요일을 골라 주세요.
                   </AppText>
@@ -401,10 +454,6 @@ export function SurveyScreen() {
                       );
                     })}
                   </View>
-                </>
-              ) : null}
-              {data.frequency ? (
-                <>
                   <AppText variant="title" style={{ marginTop: space[20] }}>
                     더 관리하고 싶은 부위가 있나요?
                   </AppText>
@@ -416,7 +465,7 @@ export function SurveyScreen() {
                       onPress={() => setData({ ...data, focus: toggle(data.focus, item) })}
                     />
                   ))}
-                </>
+                </View>
               ) : null}
             </>
           )}

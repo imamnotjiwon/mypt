@@ -25,6 +25,8 @@ export function CharacterHero({ characterSource, characterId, header }: Props) {
   const charW = Math.round(CHAR_W * scale * s);
   const charH = Math.round(CHAR_H * scale * s);
   const nudge = Math.round(charW * (character.nudgeX ?? 0));
+  // 작은 캐릭터(햄스터 등)는 바닥 기준이라 너무 낮아 보이므로 살짝 올림
+  const lift = Math.round(Math.max(0, 1 - scale) * 64 * s);
 
   return (
     <View style={[styles.section, { height: Math.round(244 * s) + top + DROP }]}>
@@ -32,7 +34,7 @@ export function CharacterHero({ characterSource, characterId, header }: Props) {
         <Image source={HERO} style={styles.bg} resizeMode="cover" />
         <Image source={HERO} style={[styles.bg, { top: DROP }]} resizeMode="cover" />
       </View>
-      <View style={[styles.stage, { top }]} pointerEvents="none">
+      <View style={[styles.stage, { top, paddingBottom: 2 + lift }]} pointerEvents="none">
         <Image
           source={characterSource}
           style={{
@@ -46,7 +48,7 @@ export function CharacterHero({ characterSource, characterId, header }: Props) {
         <FloorShadow
           width={Math.round(charW * 0.62)}
           height={Math.round(charW * 0.12)}
-          style={[styles.shadow, { transform: [{ translateX: nudge }] }]}
+          style={[styles.shadow, { bottom: lift, transform: [{ translateX: nudge }] }]}
         />
       </View>
       <View style={styles.header}>{header}</View>
