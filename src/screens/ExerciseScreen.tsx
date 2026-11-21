@@ -60,9 +60,9 @@ export function ExerciseScreen() {
   const weekSum = sumDays(weekDays);
   const weekMax = Math.max(...weekDays.map((row) => row.minutes), 1);
   const exercises = [
-    { icon: require('../../assets/ui/exercise-run.png'), title: '달리기', subtitle: 'Running', value: formatKm(day.runKm) },
-    { icon: require('../../assets/ui/exercise-weights.png'), title: '웨이트 트레이닝', subtitle: 'Weights', value: formatHours(day.weightsMin) },
-    { icon: require('../../assets/ui/exercise-cycle.png'), title: '자전거 타기', subtitle: 'Cycling', value: formatKm(day.cycleKm) },
+    { icon: require('../../assets/ui/icon-run.png'), title: '달리기', subtitle: 'Running', value: formatKm(day.runKm) },
+    { icon: require('../../assets/ui/icon-weights.png'), title: '웨이트 트레이닝', subtitle: 'Weights', value: formatHours(day.weightsMin) },
+    { icon: require('../../assets/ui/icon-cycle.png'), title: '자전거 타기', subtitle: 'Cycling', value: formatKm(day.cycleKm) },
   ];
   const canGoNext = todayKey(shiftDate(selected, 1)) <= todayKey(today);
 

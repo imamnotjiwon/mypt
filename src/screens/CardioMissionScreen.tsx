@@ -130,7 +130,19 @@ export function CardioMissionScreen() {
         <MissionTopBar title={title} onBack={leave} onClose={leave} />
         <View style={{ marginTop: space[12] }}>
           <MissionSummaryCard
-            iconSrc={require('../../assets/ui/icon-cardio.png')}
+            iconSrc={
+              /자전거/.test(title)
+                ? require('../../assets/ui/icon-cycle.png')
+                : /걷기/.test(title)
+                  ? require('../../assets/ui/icon-walk.png')
+                  : /계단/.test(title)
+                    ? require('../../assets/ui/icon-stairs.png')
+                    : /요가|스트레칭|폼롤러/.test(title)
+                      ? require('../../assets/ui/icon-stretch.png')
+                      : /플랭크/.test(title)
+                        ? require('../../assets/ui/icon-plank.png')
+                        : require('../../assets/ui/icon-run.png')
+            }
             taskLabel={mission.title}
             statusLabel={mission.done || done ? '완료' : elapsedMs > 0 ? '진행중' : '대기'}
             progress={elapsedMs / targetMs}

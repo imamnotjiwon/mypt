@@ -1,17 +1,10 @@
-import { Image, ImageSourcePropType, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from './AppText';
 import { ProgressBar } from './ProgressBar';
+import { ExerciseIcon } from './ExerciseIcons';
 import { Mission } from '../store/AppProvider';
 import { colors, font, space } from '../theme';
 import { formatMinSec } from './MissionSession';
-
-const ICONS: Record<string, ImageSourcePropType> = {
-  water: require('../../assets/ui/icon-water.png'),
-  pushup: require('../../assets/ui/icon-pushup.png'),
-  cardio: require('../../assets/ui/icon-cardio.png'),
-  walk: require('../../assets/ui/icon-walk.png'),
-  squat: require('../../assets/ui/icon-squat.png'),
-};
 
 type Row = {
   id: string;
@@ -30,9 +23,7 @@ type Props = {
 };
 
 export function MissionRow({ mission, onPress, showBadge = true }: Props) {
-  const raster = ICONS[mission.icon ?? ''] ?? ICONS[mission.id] ?? ICONS.cardio;
   const ratio = mission.done ? 1 : mission.current / mission.goal;
-  const isWater = mission.id === 'water' || mission.icon === 'water' || ('kind' in mission && mission.kind === 'water');
   return (
     <Pressable
       style={({ pressed }) => [styles.mission, pressed && styles.pressed]}
@@ -41,11 +32,7 @@ export function MissionRow({ mission, onPress, showBadge = true }: Props) {
       hitSlop={6}
     >
       <View style={styles.missionIcon}>
-        <Image
-          source={raster}
-          style={[styles.missionGlyph, isWater && styles.waterGlyph]}
-          resizeMode="contain"
-        />
+        <ExerciseIcon name={mission.icon ?? mission.id} size={48} />
         {showBadge ? (
           <Image
             source={mission.done ? require('../../assets/ui/icon-check.png') : require('../../assets/ui/plus-circle.png')}
@@ -87,14 +74,10 @@ const styles = StyleSheet.create({
   missionIcon: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'visible',
   },
-  missionGlyph: { width: 28, height: 28 },
-  waterGlyph: { width: 22, height: 26 },
   badgeImg: { position: 'absolute', top: -2, right: -2, width: 14, height: 14, borderRadius: 7 },
   missionTitle: { fontFamily: font.bold },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

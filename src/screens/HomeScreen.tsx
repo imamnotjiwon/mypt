@@ -313,12 +313,10 @@ const styles = StyleSheet.create({
   walkIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  walkGlyph: { width: 20, height: 22 },
+  walkGlyph: { width: 40, height: 40 },
   friendBox: { backgroundColor: colors.white, borderRadius: radius.card, padding: space[16], marginTop: space[16] },
   friendTitle: { fontFamily: font.bold, color: colors.navy },
   friendRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: space[12] },

@@ -66,7 +66,13 @@ export function PushupMissionScreen() {
         <MissionTopBar title={title} onBack={leave} onClose={leave} />
         <View style={{ marginTop: space[12] }}>
           <MissionSummaryCard
-            iconSrc={require('../../assets/ui/icon-lift.png')}
+            iconSrc={
+              /스쿼트|런지|레그/.test(title)
+                ? require('../../assets/ui/icon-squat.png')
+                : /푸쉬업|버피/.test(title)
+                  ? require('../../assets/ui/icon-pushup.png')
+                  : require('../../assets/ui/icon-lift.png')
+            }
             taskLabel={mission.title}
             statusLabel={mission.done || done ? '완료' : current > 0 ? '진행중' : '대기'}
             progress={current / target}
