@@ -150,6 +150,8 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     overflow: 'hidden',
     backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   rewardIcon: {
     width: 44,
