@@ -32,6 +32,9 @@ function normalizeUsername(value) {
 function emptySurvey() {
   return {
     age: '',
+    birthYear: '',
+    birthMonth: '',
+    birthDay: '',
     gender: null,
     height: '',
     weight: '',

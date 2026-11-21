@@ -17,11 +17,18 @@ import {
   minWorkoutDays,
   workoutDaysValid,
 } from '../data/schedule';
+import { ageFromBirth, birthFieldsComplete } from '../data/surveyBirth';
 import { SurveyData, useApp } from '../store/AppProvider';
 import { colors, font, layout, space } from '../theme';
 
+function withBirth(data: SurveyData, patch: Partial<Pick<SurveyData, 'birthYear' | 'birthMonth' | 'birthDay'>>): SurveyData {
+  const next = { ...data, ...patch };
+  next.age = ageFromBirth(next.birthYear, next.birthMonth, next.birthDay);
+  return next;
+}
+
 const PLACES = ['집', '헬스장', '공원'];
-const GOALS = ['체중 감량', '근력 강화', '자세 교정', '기초 체력 증진'];
+const GOALS = ['체중 감량', '체중 증량', '근력 강화', '자세 교정', '기초 체력 증진', '유연성 향상'];
 
 function toggle(list: string[], value: string) {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
@@ -33,6 +40,9 @@ export function ProfileEditScreen() {
   const [name, setName] = useState(nickname);
   const [data, setData] = useState<SurveyData>({
     ...survey,
+    birthYear: survey.birthYear ?? '',
+    birthMonth: survey.birthMonth ?? '',
+    birthDay: survey.birthDay ?? '',
     workoutDays: survey.workoutDays?.length ? survey.workoutDays : [],
   });
   const [error, setError] = useState('');
@@ -46,7 +56,9 @@ export function ProfileEditScreen() {
   const canSave = useMemo(() => {
     const next = name.trim();
     if (!next || next.length > 12) return false;
-    if (!data.age || !data.gender || !data.height || !data.weight) return false;
+    if (!birthFieldsComplete(data.birthYear, data.birthMonth, data.birthDay) || !data.gender || !data.height || !data.weight) {
+      return false;
+    }
     if (!data.frequency || !data.goal || data.places.length === 0) return false;
     if (!daysOk) return false;
     if (nicknameCost > 0 && coins < nicknameCost) return false;
@@ -108,22 +120,55 @@ export function ProfileEditScreen() {
               </AppText>
             </View>
 
+            <AppText style={styles.section}>생년월일{data.age ? ` · 만 ${data.age}세` : ''}</AppText>
             <View style={styles.row}>
-              <View style={{ flex: 1 }}>
-                <AuthInput label="나이" value={data.age} onChangeText={(age) => setData({ ...data, age })} keyboardType="number-pad" maxLength={3} placeholder="나이" />
+              <View style={{ flex: 1.35 }}>
+                <AuthInput
+                  label="년"
+                  value={data.birthYear}
+                  onChangeText={(birthYear) => setData(withBirth(data, { birthYear: birthYear.replace(/\D/g, '') }))}
+                  keyboardType="number-pad"
+                  maxLength={4}
+                  placeholder="YYYY"
+                />
               </View>
+              <View style={{ flex: 1 }}>
+                <AuthInput
+                  label="월"
+                  value={data.birthMonth}
+                  onChangeText={(birthMonth) => setData(withBirth(data, { birthMonth: birthMonth.replace(/\D/g, '') }))}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  placeholder="MM"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <AuthInput
+                  label="일"
+                  value={data.birthDay}
+                  onChangeText={(birthDay) => setData(withBirth(data, { birthDay: birthDay.replace(/\D/g, '') }))}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  placeholder="DD"
+                />
+              </View>
+            </View>
+            <View style={styles.row}>
               <View style={{ flex: 1 }}>
                 <AuthInput label="키(cm)" value={data.height} onChangeText={(height) => setData({ ...data, height })} keyboardType="number-pad" maxLength={3} placeholder="키" />
               </View>
-            </View>
-            <View style={styles.row}>
               <View style={{ flex: 1 }}>
                 <AuthInput label="몸무게(kg)" value={data.weight} onChangeText={(weight) => setData({ ...data, weight })} keyboardType="number-pad" maxLength={3} placeholder="몸무게" />
               </View>
-              <View style={{ flex: 1 }}>
-                <AuthInput label="목표 몸무게(kg)" value={data.goalWeight} onChangeText={(goalWeight) => setData({ ...data, goalWeight })} keyboardType="number-pad" maxLength={3} placeholder="목표" />
-              </View>
             </View>
+            <AuthInput
+              label="목표 몸무게(kg)"
+              value={data.goalWeight}
+              onChangeText={(goalWeight) => setData({ ...data, goalWeight })}
+              keyboardType="number-pad"
+              maxLength={3}
+              placeholder="목표"
+            />
 
             <AppText style={styles.section}>성별</AppText>
             <View style={styles.genderRow}>

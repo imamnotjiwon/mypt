@@ -33,6 +33,9 @@ export type ScreenName =
 
 export type SurveyData = {
   age: string;
+  birthYear: string;
+  birthMonth: string;
+  birthDay: string;
   gender: 'male' | 'female' | null;
   height: string;
   weight: string;
@@ -108,6 +111,9 @@ const CHARACTER_IDS: CharacterId[] = ['otter', 'rabbit', 'cat', 'gorilla', 'dog'
 
 const defaultSurvey: SurveyData = {
   age: '',
+  birthYear: '',
+  birthMonth: '',
+  birthDay: '',
   gender: null,
   height: '',
   weight: '',
