@@ -1,5 +1,6 @@
-import { ReactNode } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { ReactNode, useEffect, useRef, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { AppText } from './AppText';
 import { colors, font } from '../theme';
 
@@ -8,60 +9,96 @@ type Props = {
   size?: number;
   stroke?: number;
   children?: ReactNode;
+  /** true면 progress 변화를 부드럽게 이어서 그림 (루틴 로딩용) */
+  animate?: boolean;
+  trackColor?: string;
+  progressColor?: string;
 };
 
-export function ProgressRing({ progress, size = 180, stroke = 14, children }: Props) {
-  const pct = Math.min(1, Math.max(0, progress));
-  const deg = +(pct * 360).toFixed(2);
-  const inner = size - stroke * 2;
+export function ProgressRing({
+  progress,
+  size = 180,
+  stroke = 14,
+  children,
+  animate = false,
+  trackColor = '#D7E9F8',
+  progressColor = '#194274',
+}: Props) {
+  const target = Math.min(1, Math.max(0, progress));
+  const [display, setDisplay] = useState(target);
+  const displayRef = useRef(target);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!animate) {
+      displayRef.current = target;
+      setDisplay(target);
+      return;
+    }
+
+    const tick = () => {
+      const cur = displayRef.current;
+      const next = cur + (target - cur) * 0.18;
+      const done = Math.abs(target - next) < 0.002;
+      const value = done ? target : next;
+      displayRef.current = value;
+      setDisplay(value);
+      if (!done) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        rafRef.current = null;
+      }
+    };
+
+    if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    };
+  }, [animate, target]);
+
+  const pct = animate ? display : target;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const center = size / 2;
+  const strokeDashoffset = circumference * (1 - pct);
 
   return (
     <View style={styles.host}>
       <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-        <View
-          style={[
-            styles.track,
-            {
-              width: size,
-              height: size,
-              borderRadius: size / 2,
-              ...(Platform.OS === 'web'
-                ? {
-                    // 링만 그리고 안쪽은 비워서 뒤 그라데이션이 보이게
-                    background: `conic-gradient(from 0deg, #33A1C3 0deg, #194274 ${deg}deg, rgba(229,241,253,0.45) ${deg}deg 360deg)`,
-                    WebkitMaskImage: `radial-gradient(farthest-side, transparent calc(100% - ${stroke}px), #000 calc(100% - ${stroke}px))`,
-                    maskImage: `radial-gradient(farthest-side, transparent calc(100% - ${stroke}px), #000 calc(100% - ${stroke}px))`,
-                  }
-                : {
-                    borderWidth: stroke,
-                    borderColor: '#D7E9F8',
-                    borderTopColor: pct > 0 ? '#194274' : '#D7E9F8',
-                    backgroundColor: 'transparent',
-                  }),
-            } as object,
-          ]}
-        />
-        <View
-          style={[
-            styles.inner,
-            {
-              width: inner,
-              height: inner,
-              borderRadius: inner / 2,
-            },
-          ]}
-        >
-          {children}
-        </View>
+        <Svg width={size} height={size} style={StyleSheet.absoluteFillObject}>
+          <Circle
+            cx={center}
+            cy={center}
+            r={radius}
+            stroke={trackColor}
+            strokeWidth={stroke}
+            fill="none"
+          />
+          <Circle
+            cx={center}
+            cy={center}
+            r={radius}
+            stroke={progressColor}
+            strokeWidth={stroke}
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray={`${circumference} ${circumference}`}
+            strokeDashoffset={strokeDashoffset}
+            transform={`rotate(-90 ${center} ${center})`}
+          />
+        </Svg>
+        <View style={[styles.inner, { width: size - stroke * 2, height: size - stroke * 2 }]}>{children}</View>
       </View>
     </View>
   );
 }
 
 export function PercentRing({ progress }: { progress: number }) {
+  const pct = Math.min(1, Math.max(0, progress));
   return (
-    <ProgressRing progress={progress} size={200} stroke={16}>
-      <AppText style={styles.percent}>{Math.round(progress * 100)}%</AppText>
+    <ProgressRing progress={pct} size={200} stroke={16} animate>
+      <AppText style={styles.percent}>{Math.round(pct * 100)}%</AppText>
     </ProgressRing>
   );
 }
@@ -72,7 +109,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  track: { position: 'absolute', left: 0, top: 0, overflow: 'hidden', backgroundColor: 'transparent' },
   inner: {
     backgroundColor: 'transparent',
     alignItems: 'center',

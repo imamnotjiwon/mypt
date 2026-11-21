@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   Animated,
   Easing,
@@ -19,7 +19,7 @@ type Props = {
 };
 
 const BASE_H = 248;
-const SLIDE_MS = 340;
+const SLIDE_MS = 280;
 
 function Slot({
   character,
@@ -92,14 +92,21 @@ export function CharacterCarousel({ index, onIndexChange }: Props) {
   const n = sizeOf(next);
   const peek = Math.round(Math.max(p.w, n.w) * 0.4);
   const gap = Math.round(10 * s);
-  stepRef.current = {
-    prev: Math.round(c.w / 2 + gap + p.w / 2),
-    next: Math.round(c.w / 2 + gap + n.w / 2),
-  };
 
-  const commit = (dir: -1 | 1) => {
+  useEffect(() => {
+    stepRef.current = {
+      prev: Math.round(c.w / 2 + gap + p.w / 2),
+      next: Math.round(c.w / 2 + gap + n.w / 2),
+    };
+  }, [c.w, gap, n.w, p.w]);
+
+  const finishSlide = (dir: -1 | 1) => {
+    // 인덱스를 먼저 바꾸고, 같은 프레임에 오프셋을 0으로 리셋해야
+    // "뒤로 튕겼다가 바뀌는" 깜빡임이 없다.
     const nextIndex = (indexRef.current + dir + CHARACTERS.length) % CHARACTERS.length;
     changeRef.current(nextIndex);
+    slideX.setValue(0);
+    animating.current = false;
   };
 
   const go = (dir: -1 | 1) => {
@@ -112,60 +119,76 @@ export function CharacterCarousel({ index, onIndexChange }: Props) {
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start(({ finished }) => {
-      slideX.setValue(0);
-      if (finished) commit(dir);
-      animating.current = false;
+      if (!finished) {
+        slideX.setValue(0);
+        animating.current = false;
+        return;
+      }
+      finishSlide(dir);
     });
   };
 
-  const pan = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) =>
-        !animating.current && Math.abs(g.dx) > 10 && Math.abs(g.dx) > Math.abs(g.dy),
-      onPanResponderGrant: () => {
-        slideX.stopAnimation();
-      },
-      onPanResponderMove: (_, g) => {
-        if (animating.current) return;
-        slideX.setValue(g.dx);
-      },
-      onPanResponderRelease: (_, g) => {
-        if (animating.current) return;
-        const goNext = g.dx < -36 || g.vx < -0.45;
-        const goPrev = g.dx > 36 || g.vx > 0.45;
-        if (goNext || goPrev) {
-          const dir: -1 | 1 = goNext ? 1 : -1;
-          animating.current = true;
-          const target = dir === 1 ? -stepRef.current.next : stepRef.current.prev;
-          Animated.timing(slideX, {
-            toValue: target,
-            duration: Math.max(180, SLIDE_MS - Math.abs(g.dx) * 0.6),
-            easing: Easing.out(Easing.cubic),
+  const pan = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => !animating.current,
+        onMoveShouldSetPanResponder: (_, g) =>
+          !animating.current && Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 1.1,
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderGrant: () => {
+          slideX.stopAnimation();
+        },
+        onPanResponderMove: (_, g) => {
+          if (animating.current) return;
+          const max = Math.max(stepRef.current.prev, stepRef.current.next);
+          const dx = Math.max(-max, Math.min(max, g.dx));
+          slideX.setValue(dx);
+        },
+        onPanResponderRelease: (_, g) => {
+          if (animating.current) return;
+          const goNext = g.dx < -40 || g.vx < -0.5;
+          const goPrev = g.dx > 40 || g.vx > 0.5;
+          if (goNext || goPrev) {
+            const dir: -1 | 1 = goNext ? 1 : -1;
+            animating.current = true;
+            const target = dir === 1 ? -stepRef.current.next : stepRef.current.prev;
+            Animated.timing(slideX, {
+              toValue: target,
+              duration: Math.max(160, SLIDE_MS - Math.min(160, Math.abs(g.dx))),
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: true,
+            }).start(({ finished }) => {
+              if (!finished) {
+                slideX.setValue(0);
+                animating.current = false;
+                return;
+              }
+              finishSlide(dir);
+            });
+            return;
+          }
+          Animated.spring(slideX, {
+            toValue: 0,
             useNativeDriver: true,
-          }).start(({ finished }) => {
-            slideX.setValue(0);
-            if (finished) commit(dir);
+            bounciness: 0,
+            speed: 20,
+          }).start();
+        },
+        onPanResponderTerminate: () => {
+          Animated.spring(slideX, {
+            toValue: 0,
+            useNativeDriver: true,
+            bounciness: 0,
+            speed: 20,
+          }).start(() => {
             animating.current = false;
           });
-          return;
-        }
-        Animated.spring(slideX, {
-          toValue: 0,
-          useNativeDriver: true,
-          bounciness: 0,
-          speed: 18,
-        }).start();
-      },
-      onPanResponderTerminate: () => {
-        Animated.spring(slideX, {
-          toValue: 0,
-          useNativeDriver: true,
-          bounciness: 0,
-          speed: 18,
-        }).start();
-      },
-    }),
-  ).current;
+        },
+      }),
+    // finishSlide/slideX are stable via refs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   return (
     <View style={[styles.clip, Platform.OS === 'web' ? styles.webTouch : null]} {...pan.panHandlers}>

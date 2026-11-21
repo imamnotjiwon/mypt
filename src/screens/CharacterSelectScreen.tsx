@@ -20,12 +20,17 @@ export function CharacterSelectScreen() {
 
   useEffect(() => {
     const start = Date.now();
-    const id = setInterval(() => {
-      const t = Math.min(1, (Date.now() - start) / 2000);
-      setProgress(t);
-      if (t >= 1) clearInterval(id);
-    }, 50);
-    return () => clearInterval(id);
+    const duration = 2200;
+    let raf = 0;
+    const tick = () => {
+      const t = Math.min(1, (Date.now() - start) / duration);
+      // ease-out so the ring fills smoothly instead of stepping
+      const eased = 1 - Math.pow(1 - t, 2.4);
+      setProgress(eased);
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   return (
