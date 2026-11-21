@@ -19,9 +19,11 @@ import { ExerciseScreen } from './src/screens/ExerciseScreen';
 import { ShopScreen } from './src/screens/ShopScreen';
 import { CommunityScreen } from './src/screens/CommunityScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { ProfileEditScreen } from './src/screens/ProfileEditScreen';
 import { FriendsScreen } from './src/screens/FriendsScreen';
 import { DexScreen } from './src/screens/DexScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
+import { CoinShopScreen } from './src/screens/CoinShopScreen';
 import { PhoneShell } from './src/components/PhoneShell';
 import { colors } from './src/theme';
 import { useAppFonts } from './src/fonts';
@@ -70,12 +72,16 @@ function Root() {
       return <CommunityScreen />;
     case 'profile':
       return <ProfileScreen />;
+    case 'profileEdit':
+      return <ProfileEditScreen />;
     case 'friends':
       return <FriendsScreen />;
     case 'dex':
       return <DexScreen />;
     case 'chat':
       return <ChatScreen />;
+    case 'coinShop':
+      return <CoinShopScreen />;
     default:
       return <HomeScreen />;
   }

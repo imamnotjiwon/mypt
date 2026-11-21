@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from './AppText';
 import { PrimaryButton } from './PrimaryButton';
 import { ProgressBar } from './ProgressBar';
@@ -18,7 +18,7 @@ export function WaterMissionDialog({ currentMl, targetMl, onAdd, onDismiss }: Pr
       <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
       <View style={styles.card}>
         <View style={styles.icon}>
-          <AppText style={{ fontSize: 22 }}>💧</AppText>
+          <Image source={require('../../assets/ui/icon-water.png')} style={styles.waterIcon} resizeMode="contain" />
         </View>
         <AppText variant="title">물 마시기</AppText>
         <AppText variant="caption" style={styles.sub}>
@@ -75,6 +75,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: space[16],
   },
+  waterIcon: { width: 30, height: 38 },
   sub: { color: colors.gray, marginTop: space[4] },
   amount: { color: colors.navy, marginTop: space[16], fontFamily: font.bold },
   row: { flexDirection: 'row', gap: space[8], marginTop: space[24], width: '100%' },

@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'visible',
   },
-  missionGlyph: { width: 26, height: 26 },
+  missionGlyph: { width: 28, height: 28 },
   badgeImg: { position: 'absolute', top: -2, right: -2, width: 14, height: 14, borderRadius: 7 },
   missionTitle: { fontFamily: font.bold },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

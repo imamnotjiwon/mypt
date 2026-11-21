@@ -2,8 +2,18 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pedometer } from 'expo-sensors';
 import { Platform } from 'react-native';
 
-const DEMO_TODAY = 32450;
-const DEMO_WEEK = [18400, 22100, 32450, 19800, 25600, 14200, 8900];
+/** 평균 보폭 ~0.78m */
+export const METERS_PER_STEP = 0.78;
+/** 걷기 기준 대략치 */
+export const KCAL_PER_STEP = 0.04;
+
+export function stepsToKm(steps: number) {
+  return Math.max(0, steps) * METERS_PER_STEP / 1000;
+}
+
+export function stepsToKcal(steps: number) {
+  return Math.round(Math.max(0, steps) * KCAL_PER_STEP);
+}
 
 function todayIndex(date = new Date()) {
   return (date.getDay() + 6) % 7;
@@ -44,6 +54,18 @@ async function loadWeekSteps(now = new Date()) {
   return days;
 }
 
+async function ensurePedometerPermission() {
+  try {
+    const current = await Pedometer.getPermissionsAsync();
+    if (current.granted) return true;
+    const next = await Pedometer.requestPermissionsAsync();
+    return next.granted;
+  } catch {
+    // Older Expo Go builds may not expose permission helpers.
+    return true;
+  }
+}
+
 export function useSteps() {
   const [todaySteps, setTodaySteps] = useState(0);
   const [week, setWeek] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
@@ -52,55 +74,60 @@ export function useSteps() {
   useEffect(() => {
     let sub: { remove: () => void } | undefined;
     let cancelled = false;
+    let poll: ReturnType<typeof setInterval> | undefined;
 
     (async () => {
       if (Platform.OS === 'web') return;
 
       const ok = await Pedometer.isAvailableAsync();
       if (cancelled) return;
-      setAvailable(ok);
-      if (!ok) return;
-
-      if (Platform.OS === 'android') {
-        try {
-          await Pedometer.requestPermissionsAsync();
-        } catch {
-          // Expo Go may already prompt; keep going with whatever we can read.
-        }
+      if (!ok) {
+        setAvailable(false);
+        return;
       }
 
-      const days = await loadWeekSteps();
-      if (cancelled) return;
-      const index = todayIndex();
-      setWeek(days);
-      setTodaySteps(days[index] ?? 0);
+      const granted = await ensurePedometerPermission();
+      if (cancelled || !granted) {
+        setAvailable(false);
+        return;
+      }
 
-      sub = Pedometer.watchStepCount((event) => {
-        const add = Math.max(0, event.steps || 0);
-        if (!add) return;
-        setTodaySteps((prev) => prev + add);
-        setWeek((prev) => {
-          const next = [...prev];
-          const i = todayIndex();
-          next[i] = (next[i] ?? 0) + add;
-          return next;
-        });
+      setAvailable(true);
+
+      const refresh = async () => {
+        const days = await loadWeekSteps();
+        if (cancelled) return;
+        const index = todayIndex();
+        setWeek(days);
+        setTodaySteps(days[index] ?? 0);
+      };
+
+      await refresh();
+      // iOS getStepCountAsync is authoritative for "today"; refresh periodically.
+      poll = setInterval(() => {
+        refresh().catch(() => undefined);
+      }, 15000);
+
+      sub = Pedometer.watchStepCount(() => {
+        refresh().catch(() => undefined);
       });
     })();
 
     return () => {
       cancelled = true;
       sub?.remove();
+      if (poll) clearInterval(poll);
     };
   }, []);
 
   const weekTotal = useMemo(() => week.reduce((sum, value) => sum + value, 0), [week]);
 
   return {
-    todaySteps: available ? todaySteps : DEMO_TODAY,
-    week: available ? week : DEMO_WEEK,
-    /** 미션 합산용 — 센서 없을 때는 데모 숫자 제외 */
+    todaySteps: available ? todaySteps : 0,
+    week: available ? week : [0, 0, 0, 0, 0, 0, 0],
     deviceWeekSteps: available ? weekTotal : 0,
     available,
+    distanceKm: stepsToKm(available ? todaySteps : 0),
+    calories: stepsToKcal(available ? todaySteps : 0),
   };
 }

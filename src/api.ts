@@ -23,6 +23,20 @@ let apiBase = resolveApiBase();
 
 export async function initApiBase() {
   if (Platform.OS === 'web') return apiBase;
+
+  // Dev/tunnel session: EXPO_PUBLIC_API_URL wins so phones off LAN
+  // (and any Expo account) keep the live public API, not a stale Pages URL.
+  const fromEnv = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '');
+  if (fromEnv) {
+    apiBase = fromEnv;
+    try {
+      await AsyncStorage.setItem(API_URL_KEY, apiBase);
+    } catch {
+      /* ignore */
+    }
+    return apiBase;
+  }
+
   try {
     const cached = await AsyncStorage.getItem(API_URL_KEY);
     if (cached) apiBase = cached.replace(/\/$/, '');

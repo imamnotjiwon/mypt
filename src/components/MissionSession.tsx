@@ -101,10 +101,21 @@ export function MissionProgressRing({
   );
 }
 
-export function cardioSessionStats(title: string, minutes: number, targetMin: number) {
+export function usesDeviceSteps(title: string) {
+  return /걷기|달리기|런닝|계단/.test(title);
+}
+
+export function cardioSessionStats(
+  title: string,
+  minutes: number,
+  targetMin: number,
+  live?: { steps?: number; distanceKm?: number; calories?: number },
+) {
   const p = minutes / Math.max(1, targetMin);
   const kcal = (perMin: number) => String(Math.max(0, Math.round(minutes * perMin)));
   const name = title;
+  const liveSteps = live?.steps;
+  const hasLiveSteps = typeof liveSteps === 'number' && liveSteps >= 0;
 
   if (/요가|스트레칭|폼롤러/.test(name)) {
     return [
@@ -128,24 +139,37 @@ export function cardioSessionStats(title: string, minutes: number, targetMin: nu
     ];
   }
   if (/걷기/.test(name)) {
+    const steps = hasLiveSteps ? liveSteps! : Math.round(minutes * 110);
+    const distance = hasLiveSteps
+      ? (live?.distanceKm ?? steps * 0.00078).toFixed(2)
+      : (minutes * 0.08).toFixed(2);
+    const calories = hasLiveSteps ? String(live?.calories ?? Math.round(steps * 0.04)) : kcal(5);
     return [
-      { icon: '🔥', tint: '#E05C6E', label: '예상 칼로리', value: kcal(5), unit: 'kcal' },
-      { icon: '📍', tint: '#33A1C3', label: '예상 거리', value: (minutes * 0.08).toFixed(2), unit: 'km' },
-      { icon: '🚶', tint: '#2E9E63', label: '걸음 수', value: Math.round(minutes * 110).toLocaleString(), unit: '걸음' },
+      { icon: '🔥', tint: '#E05C6E', label: '예상 칼로리', value: calories, unit: 'kcal' },
+      { icon: '📍', tint: '#33A1C3', label: '예상 거리', value: distance, unit: 'km' },
+      { icon: '🚶', tint: '#2E9E63', label: '걸음 수', value: steps.toLocaleString(), unit: '걸음' },
     ];
   }
   if (/계단/.test(name)) {
+    const steps = hasLiveSteps ? liveSteps! : Math.round(minutes * 90);
+    const floors = hasLiveSteps ? Math.max(0, Math.round(steps / 16)) : Math.round(minutes * 1.2);
+    const calories = hasLiveSteps ? String(live?.calories ?? Math.round(steps * 0.05)) : kcal(7);
     return [
-      { icon: '🔥', tint: '#E05C6E', label: '예상 칼로리', value: kcal(7), unit: 'kcal' },
-      { icon: '📶', tint: '#33A1C3', label: '오른 층', value: String(Math.round(minutes * 1.2)), unit: '층' },
-      { icon: '🚶', tint: '#2E9E63', label: '걸음 수', value: Math.round(minutes * 90).toLocaleString(), unit: '걸음' },
+      { icon: '🔥', tint: '#E05C6E', label: '예상 칼로리', value: calories, unit: 'kcal' },
+      { icon: '📶', tint: '#33A1C3', label: '오른 층', value: String(floors), unit: '층' },
+      { icon: '🚶', tint: '#2E9E63', label: '걸음 수', value: steps.toLocaleString(), unit: '걸음' },
     ];
   }
   if (/달리기|런닝/.test(name)) {
+    const steps = hasLiveSteps ? liveSteps! : Math.round(minutes * 140);
+    const distance = hasLiveSteps
+      ? (live?.distanceKm ?? steps * 0.0009).toFixed(2)
+      : (minutes * 0.12).toFixed(2);
+    const calories = hasLiveSteps ? String(live?.calories ?? Math.round(steps * 0.05)) : kcal(10);
     return [
-      { icon: '🔥', tint: '#E05C6E', label: '예상 칼로리', value: kcal(10), unit: 'kcal' },
-      { icon: '📍', tint: '#33A1C3', label: '예상 거리', value: (minutes * 0.12).toFixed(2), unit: 'km' },
-      { icon: '🚶', tint: '#2E9E63', label: '걸음 수', value: Math.round(minutes * 140).toLocaleString(), unit: '걸음' },
+      { icon: '🔥', tint: '#E05C6E', label: '예상 칼로리', value: calories, unit: 'kcal' },
+      { icon: '📍', tint: '#33A1C3', label: '예상 거리', value: distance, unit: 'km' },
+      { icon: '🚶', tint: '#2E9E63', label: '걸음 수', value: steps.toLocaleString(), unit: '걸음' },
     ];
   }
   return [

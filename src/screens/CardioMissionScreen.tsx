@@ -1,10 +1,21 @@
-import { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Platform, View } from 'react-native';
+import { Pedometer } from 'expo-sensors';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MissionProgressRing, MissionScreenFrame, MissionStatsRow, MissionSummaryCard, MissionTopBar, cardioSessionStats, formatMinSec } from '../components/MissionSession';
+import {
+  MissionProgressRing,
+  MissionScreenFrame,
+  MissionStatsRow,
+  MissionSummaryCard,
+  MissionTopBar,
+  cardioSessionStats,
+  formatMinSec,
+  usesDeviceSteps,
+} from '../components/MissionSession';
 import { MissionRewardDialog } from '../components/MissionRewardDialog';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { getCharacter } from '../data/characters';
+import { stepsToKcal, stepsToKm } from '../hooks/useSteps';
 import { useApp } from '../store/AppProvider';
 import { space } from '../theme';
 
@@ -15,9 +26,11 @@ export function CardioMissionScreen() {
   const targetMin = mission?.goal ?? 20;
   const targetMs = targetMin * 60 * 1000;
   const title = mission?.title.replace(/\s+\d+\S*$/, '') || '유산소';
+  const trackSteps = usesDeviceSteps(title);
   const [elapsedMs, setElapsedMs] = useState(() => Math.min(targetMs, Math.round((mission?.current ?? 0) * 60 * 1000)));
   const [paused, setPaused] = useState(false);
   const [showReward, setShowReward] = useState(false);
+  const [sessionSteps, setSessionSteps] = useState(0);
   const elapsedMsRef = useRef(elapsedMs);
   elapsedMsRef.current = elapsedMs;
   const elapsedSec = Math.floor(elapsedMs / 1000);
@@ -51,18 +64,71 @@ export function CardioMissionScreen() {
     return () => clearInterval(id);
   }, [paused, done, mission?.id, mission?.done, targetMs]);
 
+  useEffect(() => {
+    if (!trackSteps || Platform.OS === 'web' || paused || done || !mission || mission.done) return;
+    let sub: { remove: () => void } | undefined;
+    let cancelled = false;
+    const startedAt = new Date();
+
+    (async () => {
+      try {
+        const ok = await Pedometer.isAvailableAsync();
+        if (!ok || cancelled) return;
+        try {
+          const perm = await Pedometer.getPermissionsAsync();
+          if (!perm.granted) {
+            const next = await Pedometer.requestPermissionsAsync();
+            if (!next.granted || cancelled) return;
+          }
+        } catch {
+          // Expo Go may already allow motion data.
+        }
+
+        const pull = async () => {
+          try {
+            const result = await Pedometer.getStepCountAsync(startedAt, new Date());
+            if (!cancelled) setSessionSteps(Math.max(0, result.steps || 0));
+          } catch {
+            /* keep last */
+          }
+        };
+
+        await pull();
+        sub = Pedometer.watchStepCount(() => {
+          pull().catch(() => undefined);
+        });
+      } catch {
+        /* pedometer unavailable */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      sub?.remove();
+    };
+  }, [trackSteps, paused, done, mission?.id, mission?.done]);
+
   const leave = () => {
     if (mission && !mission.done) saveMissionProgress(mission.id, elapsedMsRef.current / 60000);
     go(previousTab === 'quest' ? 'quest' : 'home');
   };
 
+  const liveStats = useMemo(() => {
+    if (!trackSteps) return undefined;
+    return {
+      steps: sessionSteps,
+      distanceKm: stepsToKm(sessionSteps),
+      calories: stepsToKcal(sessionSteps),
+    };
+  }, [trackSteps, sessionSteps]);
+
   if (!mission) return null;
 
   return (
     <MissionScreenFrame>
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+      <SafeAreaView style={{ flex: 1 }} edges={[]}>
         <MissionTopBar title={title} onBack={leave} onClose={leave} />
-        <View style={{ marginTop: space[16] }}>
+        <View style={{ marginTop: space[12] }}>
           <MissionSummaryCard
             iconSrc={require('../../assets/ui/icon-cardio.png')}
             taskLabel={mission.title}
@@ -79,7 +145,7 @@ export function CardioMissionScreen() {
             bottomLabel={done ? '미션 완료!' : `남은 시간 ${formatMinSec(targetSec - elapsedSec)}`}
           />
         </View>
-        <MissionStatsRow stats={cardioSessionStats(title, elapsedMin, targetMin)} />
+        <MissionStatsRow stats={cardioSessionStats(title, elapsedMin, targetMin, liveStats)} />
         <View style={{ marginTop: space[16], marginBottom: space[16] }}>
           {done ? (
             <PrimaryButton label="운동 완료하기" onPress={() => setShowReward(true)} />

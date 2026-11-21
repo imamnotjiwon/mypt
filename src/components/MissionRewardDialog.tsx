@@ -112,7 +112,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 26,
   },
-  hero: { width: '100%', flex: 1, maxHeight: 360, marginTop: space[8] },
+  hero: {
+    width: '68%',
+    maxWidth: 220,
+    flexGrow: 0,
+    flexShrink: 1,
+    height: 200,
+    maxHeight: 220,
+    marginTop: space[12],
+    marginBottom: space[8],
+  },
   rewards: { flexDirection: 'row', gap: space[8], width: '100%' },
   reward: {
     flex: 1,

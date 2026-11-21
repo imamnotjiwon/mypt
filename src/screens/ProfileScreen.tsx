@@ -13,7 +13,7 @@ import { colors, font, gradient, layout, radius, space } from '../theme';
 
 const AVATAR = 147;
 /** 고양이 헤드만 크롭이 타이트해서 축소 */
-const CAT_HEAD_FIT = 0.7;
+const CAT_HEAD_FIT = 0.62;
 
 export function ProfileScreen() {
   const { go, previousTab, characterId, nickname, coins, level, streakDays, survey, logout, openCoinShop } = useApp();

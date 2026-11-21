@@ -62,9 +62,9 @@ export function PushupMissionScreen() {
 
   return (
     <MissionScreenFrame>
-      <SafeAreaView style={{ flex: 1, width: '100%' }} edges={['top']}>
+      <SafeAreaView style={{ flex: 1, width: '100%' }} edges={[]}>
         <MissionTopBar title={title} onBack={leave} onClose={leave} />
-        <View style={{ marginTop: space[16] }}>
+        <View style={{ marginTop: space[12] }}>
           <MissionSummaryCard
             iconSrc={require('../../assets/ui/icon-lift.png')}
             taskLabel={mission.title}

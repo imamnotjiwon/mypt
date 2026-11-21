@@ -31,11 +31,19 @@ export function ScreenHeader({
 }: Props) {
   const character = getCharacter(characterId);
   const { top } = useAppInsets();
+  // 고양이 헤드 크롭이 타이트해서 얼굴을 조금 줄여 원 안에 맞춤
+  const headFit = character.id === 'cat' ? 0.62 : 0.78;
+  const headSize = Math.round(layout.avatar * headFit);
+  const headNudge = Math.round(headSize * (character.nudgeX ?? 0));
   return (
     <View style={[styles.row, { paddingTop: top, paddingBottom: compact ? space[8] : space[16] }]}>
       <Pressable style={styles.profile} onPress={onPressProfile} hitSlop={12}>
         <View style={styles.avatar}>
-          <Image source={character.head} style={styles.avatarImg} resizeMode="contain" />
+          <Image
+            source={character.head}
+            style={{ width: headSize, height: headSize, transform: [{ translateX: headNudge }] }}
+            resizeMode="contain"
+          />
         </View>
         <AppText variant="cardTitle" style={styles.name} numberOfLines={1}>
           {nickname}
@@ -85,10 +93,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
-  },
-  avatarImg: {
-    width: 40,
-    height: 40,
   },
   name: {
     flexShrink: 1,
